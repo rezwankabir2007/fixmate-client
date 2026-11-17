@@ -3,8 +3,10 @@
 import Link from "next/link"
 import { Menu, X } from "lucide-react"
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { authClient } from "@/lib/auth-client"
 
 const navItems = [
   { label: "Home", href: "/" },
@@ -13,7 +15,18 @@ const navItems = [
 ]
 
 export function SiteHeader() {
+  const router = useRouter();
   const [open, setOpen] = React.useState(false)
+  const { data: session, isPending } = authClient.useSession();
+
+  const userRole = (session?.user as { role?: string } | undefined)?.role ?? "customer";
+  const dashboardHref =
+    userRole === "admin" ? "/dashboard/admin" : userRole === "technician" ? "/dashboard/technician" : "/dashboard/customer";
+
+  const handleSignOut = async () => {
+    await authClient.signOut();
+    router.push("/");
+  };
 
   return (
     <header className="sticky top-4 z-40 mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
@@ -39,6 +52,33 @@ export function SiteHeader() {
 
           <div className="flex items-center gap-2">
             <ThemeToggle />
+
+            {!isPending && session ? (
+              <>
+                <Link href={dashboardHref} className="hidden sm:block">
+                  <Button variant="outline" className="rounded-full">
+                    My dashboard
+                  </Button>
+                </Link>
+                <Button onClick={handleSignOut} variant="ghost" className="hidden rounded-full sm:inline-flex">
+                  Sign out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link href="/sign-in" className="hidden sm:block">
+                  <Button variant="outline" className="rounded-full">
+                    Sign in
+                  </Button>
+                </Link>
+                <Link href="/sign-up" className="hidden sm:block">
+                  <Button className="rounded-full bg-[linear-gradient(135deg,#17243B_0%,#3478F6_100%)] text-white shadow-lg shadow-blue-500/20">
+                    Create account
+                  </Button>
+                </Link>
+              </>
+            )}
+
             <Link href="/services" className="hidden sm:block">
               <Button className="rounded-full bg-[linear-gradient(135deg,#17243B_0%,#3478F6_100%)] text-white shadow-lg shadow-blue-500/20">
                 Book now
@@ -67,6 +107,33 @@ export function SiteHeader() {
                 {item.label}
               </Link>
             ))}
+
+            {!isPending && session ? (
+              <>
+                <Link href={dashboardHref} onClick={() => setOpen(false)} className="mt-1">
+                  <Button variant="outline" className="w-full rounded-full">
+                    My dashboard
+                  </Button>
+                </Link>
+                <Button onClick={handleSignOut} className="w-full rounded-full">
+                  Sign out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link href="/sign-in" onClick={() => setOpen(false)} className="mt-1">
+                  <Button variant="outline" className="w-full rounded-full">
+                    Sign in
+                  </Button>
+                </Link>
+                <Link href="/sign-up" onClick={() => setOpen(false)}>
+                  <Button className="w-full rounded-full bg-[linear-gradient(135deg,#17243B_0%,#3478F6_100%)] text-white">
+                    Create account
+                  </Button>
+                </Link>
+              </>
+            )}
+
             <Link href="/services" onClick={() => setOpen(false)} className="mt-1">
               <Button className="w-full rounded-full bg-[linear-gradient(135deg,#17243B_0%,#3478F6_100%)] text-white">
                 Book now
