@@ -10,7 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { authClient } from "@/lib/auth-client";
+import { authClient, type AuthSessionUser } from "@/lib/auth-client";
+import { getAuthErrorMessage } from "@/lib/auth-errors";
+import { dashboardPathForRole, isUserRole } from "@/lib/user-role";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -26,21 +28,27 @@ export default function SignInPage() {
 
     try {
       const result = await authClient.signIn.email({
-        email,
+        email: email.trim(),
         password,
       });
 
-      if (result && typeof result === "object" && "error" in result && result.error) {
-        throw new Error((result as { error?: { message?: string } }).error?.message ?? "Sign-in failed.");
+      if (result.error) {
+        setError(getAuthErrorMessage(result.error, "Unable to sign in to FixMate."));
+        return;
       }
 
       const sessionResponse = await authClient.getSession();
-      const role = ((sessionResponse?.data?.user as { role?: string } | undefined)?.role ?? "customer") as "customer" | "technician" | "admin";
-      const path = role === "admin" ? "/dashboard/admin" : role === "technician" ? "/dashboard/technician" : "/dashboard/customer";
-      router.replace(path);
+      const sessionUser = sessionResponse.data?.user as AuthSessionUser | undefined;
+
+      if (sessionResponse.error || !sessionUser || !isUserRole(sessionUser.role)) {
+        setError("We couldn't verify your account role. Please try again or contact support.");
+        return;
+      }
+
+      router.replace(dashboardPathForRole(sessionUser.role));
+      router.refresh();
     } catch (submitError) {
-      const message = submitError instanceof Error ? submitError.message : "Unable to sign in to FixMate.";
-      setError(message);
+      setError(getAuthErrorMessage(submitError, "Unable to sign in to FixMate."));
     } finally {
       setBusy(false);
     }
@@ -86,12 +94,12 @@ export default function SignInPage() {
               <form className="space-y-4" onSubmit={handleSubmit}>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" required />
+                  <Input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" autoComplete="email" required />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" required />
+                  <Input id="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" autoComplete="current-password" required />
                 </div>
 
                 {error ? (

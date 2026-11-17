@@ -1,58 +1,37 @@
 # FixMate Authentication
 
-## Authentication stack
+## Source of truth
 
-- BetterAuth powers the app-wide session management and email/password flows.
-- MongoDB is the default production data store when `MONGODB_URI` is provided.
-- Local development falls back to a SQLite in-memory database so the app can still boot without a running MongoDB instance.
+The app uses the single BetterAuth instance configured in `src/lib/auth.ts`, backed by the MongoDB adapter and `MONGODB_URI`. The browser-only client in `src/lib/auth-client.ts` calls the app's BetterAuth API route; it does not create another server instance or import server configuration.
 
-## Role model
+The API is exposed at `/api/auth/[...all]`. Its `GET` and `POST` handlers delegate to BetterAuth. The `POST` handler additionally blocks public admin registration and role changes through profile updates.
 
-The app supports the required roles:
+## Roles and registration
 
-- `customer`
-- `technician`
-- `admin`
-
-The `user.role` field is added as a BetterAuth user additional field in `src/lib/auth.ts`.
-
-## Secure admin bootstrap
-
-Admin accounts are never created through the public sign-up route. The secure setup path is:
+The `user.role` additional field supports `customer`, `technician`, and `admin`; new users default to `customer`. Public registration accepts only customer and technician roles. Admin account creation is restricted to the configured admin setup endpoint:
 
 - `POST /api/auth/admin/setup`
 - Requires a matching `secret` body value or `x-admin-setup-key` header.
-- `ADMIN_SETUP_KEY` must be configured with at least 32 characters; the endpoint returns `503` when it is missing or too short. There is no built-in bootstrap secret.
-- Public BetterAuth sign-up accepts only the `customer` and `technician` roles.
+- `ADMIN_SETUP_KEY` must be at least 32 characters. The endpoint returns `503` if it is missing or too short.
 
-## Frontend and backend integration
+Existing MongoDB user records must contain the correct `role` value for role-based dashboard access. Before deployment, migrate any existing users with missing or invalid roles.
 
-The frontend uses BetterAuth client helpers from `src/lib/auth-client.ts`:
+## Frontend flows
 
-- `/sign-up` allows customer and technician registration.
-- `/sign-in` authenticates existing users.
-- `/dashboard` redirects users to the correct role dashboard.
-- Dashboard pages and mutation endpoints verify the BetterAuth session and role on the server.
+- `/sign-up` sends the chosen customer or technician role to BetterAuth, validates name and password, and displays registration/session errors.
+- `/sign-in` authenticates by email and password, then reads the authenticated session role before routing to the matching dashboard.
+- The site header and dashboard use the BetterAuth session for the user's real name, role-specific navigation, and logout.
+- Dashboard pages and protected mutation endpoints verify the server-side BetterAuth session and role. Client-supplied role values are never used for authorization.
+- Public pages do not require a session. Missing dashboard sessions redirect to `/sign-in`; a user with a different valid role is redirected to their own dashboard.
 
-The backend route is exposed through:
+## Required environment
 
-- `src/app/api/auth/[...all]/route.ts`
+Configure these values in the server environment:
 
-This forwards requests to the BetterAuth Next.js handler, enabling the standard sign-in and sign-up endpoints.
-
-## Environment requirements
-
-Set the following variables in the environment before production use:
-
-```bash
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-BETTER_AUTH_SECRET=replace-this-with-a-strong-secret
-MONGODB_URI=mongodb://localhost:27017/fixmate
-ADMIN_SETUP_KEY=replace-this-with-a-secure-bootstrap-secret
+```text
+MONGODB_URI=<MongoDB connection string>
+BETTER_AUTH_SECRET=<at least 32 random characters>
+ADMIN_SETUP_KEY=<at least 32 random characters>
 ```
 
-## Notes
-
-- `customer` and `technician` are public registration flows.
-- `admin` creation is intentionally restricted and only available through the secure admin bootstrap endpoint.
-- Session-aware navigation and protected dashboards restrict unauthorized access to each user's role-specific workspace.
+Use the same canonical application origin for the BetterAuth server and browser deployment. Do not expose server secrets through `NEXT_PUBLIC_*` variables.

@@ -6,7 +6,9 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { authClient } from "@/lib/auth-client"
+import { authClient, type AuthSessionUser } from "@/lib/auth-client"
+import { getAuthErrorMessage } from "@/lib/auth-errors"
+import { dashboardPathForRole, isUserRole } from "@/lib/user-role"
 
 const navItems = [
   { label: "Home", href: "/" },
@@ -17,15 +19,22 @@ const navItems = [
 export function SiteHeader() {
   const router = useRouter();
   const [open, setOpen] = React.useState(false)
+  const [signOutError, setSignOutError] = React.useState("")
   const { data: session, isPending } = authClient.useSession();
 
-  const userRole = (session?.user as { role?: string } | undefined)?.role ?? "customer";
-  const dashboardHref =
-    userRole === "admin" ? "/dashboard/admin" : userRole === "technician" ? "/dashboard/technician" : "/dashboard/customer";
+  const sessionUser = session?.user as AuthSessionUser | undefined;
+  const dashboardHref = isUserRole(sessionUser?.role) ? dashboardPathForRole(sessionUser.role) : null;
 
   const handleSignOut = async () => {
-    await authClient.signOut();
-    router.push("/");
+    setSignOutError("");
+    try {
+      const result = await authClient.signOut();
+      if (result.error) throw result.error;
+      router.replace("/");
+      router.refresh();
+    } catch (error) {
+      setSignOutError(getAuthErrorMessage(error, "Sign out failed. Please try again."));
+    }
   };
 
   return (
@@ -55,11 +64,16 @@ export function SiteHeader() {
 
             {!isPending && session ? (
               <>
-                <Link href={dashboardHref} className="hidden sm:block">
-                  <Button variant="outline" className="rounded-full">
-                    My dashboard
-                  </Button>
-                </Link>
+                <span className="hidden max-w-36 truncate text-sm text-muted-foreground lg:block" title={sessionUser?.name || sessionUser?.email}>
+                  {sessionUser?.name || sessionUser?.email}
+                </span>
+                {dashboardHref ? (
+                  <Link href={dashboardHref} className="hidden sm:block">
+                    <Button variant="outline" className="rounded-full">
+                      My dashboard
+                    </Button>
+                  </Link>
+                ) : null}
                 <Button onClick={handleSignOut} variant="ghost" className="hidden rounded-full sm:inline-flex">
                   Sign out
                 </Button>
@@ -95,6 +109,12 @@ export function SiteHeader() {
           </div>
         </div>
 
+        {signOutError ? (
+          <p role="alert" className="px-3 pt-2 text-right text-xs text-red-600 dark:text-red-300">
+            {signOutError}
+          </p>
+        ) : null}
+
         {open && (
           <nav className="mt-3 grid gap-2 border-t border-border pt-3 md:hidden">
             {navItems.map((item) => (
@@ -110,11 +130,14 @@ export function SiteHeader() {
 
             {!isPending && session ? (
               <>
-                <Link href={dashboardHref} onClick={() => setOpen(false)} className="mt-1">
-                  <Button variant="outline" className="w-full rounded-full">
-                    My dashboard
-                  </Button>
-                </Link>
+                <p className="px-3 pt-2 text-sm text-muted-foreground">{sessionUser?.name || sessionUser?.email}</p>
+                {dashboardHref ? (
+                  <Link href={dashboardHref} onClick={() => setOpen(false)} className="mt-1">
+                    <Button variant="outline" className="w-full rounded-full">
+                      My dashboard
+                    </Button>
+                  </Link>
+                ) : null}
                 <Button onClick={handleSignOut} className="w-full rounded-full">
                   Sign out
                 </Button>

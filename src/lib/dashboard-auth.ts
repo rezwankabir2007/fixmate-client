@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { UserRole } from "@/lib/auth";
 import { auth } from "@/lib/auth";
+import { dashboardPathForRole, isUserRole } from "@/lib/user-role";
 
 export type DashboardUser = {
   id: string;
@@ -9,14 +10,6 @@ export type DashboardUser = {
   email: string;
   role: UserRole;
 };
-
-function isUserRole(role: string): role is UserRole {
-  return role === "customer" || role === "technician" || role === "admin";
-}
-
-function dashboardPath(role: UserRole) {
-  return `/dashboard/${role}`;
-}
 
 export async function getDashboardUserFromHeaders(requestHeaders: Headers): Promise<DashboardUser | null> {
   const session = await auth.api.getSession({
@@ -38,7 +31,7 @@ export async function requireDashboardUser(role?: UserRole): Promise<DashboardUs
   const user = await getDashboardUserFromHeaders(await headers());
 
   if (!user) redirect("/sign-in");
-  if (role && user.role !== role) redirect(dashboardPath(user.role));
+  if (role && user.role !== role) redirect(dashboardPathForRole(user.role));
 
   return user;
 }

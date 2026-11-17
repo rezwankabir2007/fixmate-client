@@ -10,12 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { authClient } from "@/lib/auth-client";
+import { authClient, type AuthSessionUser } from "@/lib/auth-client";
+import { getAuthErrorMessage } from "@/lib/auth-errors";
+import { dashboardPathForRole, isUserRole } from "@/lib/user-role";
 
 const roleOptions = [
   { value: "customer", label: "Customer", description: "Book repairs and manage service history.", icon: UserCircle2 },
   { value: "technician", label: "Technician", description: "Accept assignments and manage jobs.", icon: Wrench },
-];
+] as const;
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -24,32 +26,58 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<"customer" | "technician">("customer");
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setBusy(true);
     setError("");
+    setSuccess("");
+
+    const normalizedName = name.trim();
+    const normalizedEmail = email.trim();
+    if (normalizedName.length < 2 || normalizedName.length > 80) {
+      setError("Enter a name between 2 and 80 characters.");
+      return;
+    }
+    if (password.length < 8 || password.length > 128) {
+      setError("Your password must be between 8 and 128 characters.");
+      return;
+    }
+
+    setBusy(true);
+    let accountCreated = false;
 
     try {
       const result = await authClient.signUp.email({
-        name,
-        email,
+        name: normalizedName,
+        email: normalizedEmail,
         password,
         role,
       } as Parameters<typeof authClient.signUp.email>[0]);
 
-      if (result && typeof result === "object" && "error" in result && result.error) {
-        throw new Error((result as { error?: { message?: string } }).error?.message ?? "Sign-up failed.");
+      if (result.error) {
+        setError(getAuthErrorMessage(result.error, "Unable to create your FixMate account."));
+        return;
       }
 
+      accountCreated = true;
       const sessionResponse = await authClient.getSession();
-      const userRole = ((sessionResponse?.data?.user as { role?: string } | undefined)?.role ?? role) as "customer" | "technician" | "admin";
-      const path = userRole === "technician" ? "/dashboard/technician" : "/dashboard/customer";
-      router.replace(path);
+      const sessionUser = sessionResponse.data?.user as AuthSessionUser | undefined;
+
+      if (!sessionResponse.error && sessionUser && isUserRole(sessionUser.role)) {
+        router.replace(dashboardPathForRole(sessionUser.role));
+        router.refresh();
+        return;
+      }
+
+      setSuccess("Your account was created. Sign in to continue.");
     } catch (submitError) {
-      const message = submitError instanceof Error ? submitError.message : "Unable to create your FixMate account.";
-      setError(message);
+      if (accountCreated) {
+        setSuccess("Your account was created, but we couldn't verify your session. Sign in to continue.");
+      } else {
+        setError(getAuthErrorMessage(submitError, "Unable to create your FixMate account."));
+      }
     } finally {
       setBusy(false);
     }
@@ -80,7 +108,8 @@ export default function SignUpPage() {
                   <button
                     type="button"
                     key={value}
-                    onClick={() => setRole(value as "customer" | "technician")}
+                    onClick={() => setRole(value)}
+                    disabled={busy}
                     className={`rounded-[24px] border p-4 text-left transition-all ${
                       selected
                         ? "border-blue-500/40 bg-blue-500/8 shadow-[0_14px_40px_rgba(52,120,246,0.12)]"
@@ -112,22 +141,27 @@ export default function SignUpPage() {
               <form className="space-y-4" onSubmit={handleSubmit}>
                 <div className="space-y-2">
                   <Label htmlFor="name">Full name</Label>
-                  <Input id="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Your full name" required />
+                  <Input id="name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Your full name" minLength={2} maxLength={80} required />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" required />
+                  <Input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="name@example.com" autoComplete="email" required />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Create a secure password" required />
+                  <Input id="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Create a secure password" minLength={8} maxLength={128} autoComplete="new-password" required />
                 </div>
 
                 {error ? (
                   <div className="rounded-2xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-sm text-red-600 dark:text-red-300">
                     {error}
+                  </div>
+                ) : null}
+                {success ? (
+                  <div role="status" className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300">
+                    {success}
                   </div>
                 ) : null}
 
