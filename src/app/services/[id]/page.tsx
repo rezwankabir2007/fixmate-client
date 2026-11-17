@@ -7,15 +7,18 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { SiteFooter } from "@/components/site-footer"
 import { SiteHeader } from "@/components/site-header"
-import { getApprovedAvailableServices, getServiceById } from "@/lib/services"
-
-export function generateStaticParams() {
-  return getApprovedAvailableServices().map((service) => ({ id: service.id }))
-}
+import { getPublicServiceById, getRelatedPublicServices } from "@/lib/service-repository"
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params
-  const service = getServiceById(id)
+  let service
+
+  try {
+    service = await getPublicServiceById(id)
+  } catch (error) {
+    console.error(`Failed to load metadata for service "${id}".`, error)
+    return { title: "Service details | FixMate" }
+  }
 
   if (!service) {
     return { title: "Service not found | FixMate" }
@@ -29,15 +32,35 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function ServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const service = getServiceById(id)
+  let service
+  let relatedServices
+
+  try {
+    service = await getPublicServiceById(id)
+    if (service) relatedServices = await getRelatedPublicServices(service)
+  } catch (error) {
+    console.error(`Failed to load service details for "${id}".`, error)
+
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        <SiteHeader />
+        <main className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
+          <div role="alert" className="rounded-[28px] border border-red-500/20 bg-red-500/5 p-8 text-center">
+            <h1 className="text-2xl font-semibold text-foreground">Service details are temporarily unavailable</h1>
+            <p className="mt-3 text-muted-foreground">Please try again in a moment or browse the full service catalog.</p>
+            <Link href="/services" className="mt-6 inline-flex">
+              <Button variant="outline" className="rounded-full">Back to services</Button>
+            </Link>
+          </div>
+        </main>
+        <SiteFooter />
+      </div>
+    )
+  }
 
   if (!service) {
     notFound()
   }
-
-  const relatedServices = getApprovedAvailableServices()
-    .filter((item) => item.id !== service.id)
-    .slice(0, 3)
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -61,6 +84,9 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
                 <Badge className="rounded-full border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
                   <CheckCircle2 className="size-3.5" /> Available
                 </Badge>
+                {service.serviceMode ? (
+                  <Badge variant="outline" className="rounded-full">{service.serviceMode}</Badge>
+                ) : null}
               </div>
 
               <h1 className="mt-5 text-4xl font-semibold tracking-[-0.05em] text-foreground">{service.title}</h1>
@@ -152,7 +178,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
           </div>
 
           <div className="grid gap-5 md:grid-cols-3">
-            {relatedServices.map((item) => (
+            {(relatedServices ?? []).map((item) => (
               <Card key={item.id} className="overflow-hidden border-border bg-card/80 shadow-[0_18px_35px_rgba(23,36,59,0.06)]">
                 <div className="overflow-hidden">
                   <img src={item.image} alt={item.title} className="h-40 w-full object-cover" />

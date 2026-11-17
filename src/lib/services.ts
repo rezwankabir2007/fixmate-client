@@ -21,6 +21,7 @@ export type RepairService = {
   available: boolean
   publishedAt: string
   image: string
+  serviceMode?: string
 }
 
 export const serviceCategories: ServiceCategory[] = [
