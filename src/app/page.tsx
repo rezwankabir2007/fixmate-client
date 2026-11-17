@@ -16,7 +16,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
+import { getApprovedAvailableServices, serviceCategories } from "@/lib/services";
 
 const stats = [
   { label: "Repairs completed", value: "16.8k" },
@@ -24,7 +26,17 @@ const stats = [
   { label: "Customer satisfaction", value: "4.9/5" },
 ];
 
-const services = [
+const categoryIcons = [
+  Wrench,
+  Cpu,
+  Gauge,
+  ShieldCheck,
+  Sparkles,
+  Zap,
+  BellRing,
+] as const;
+
+const servicePillars = [
   {
     icon: Wrench,
     title: "Smart home fixes",
@@ -54,40 +66,14 @@ const highlights = [
   { icon: Sparkles, title: "Premium materials", detail: "Certified parts and refined finish work" },
 ];
 
+const latestServices = getApprovedAvailableServices().slice(0, 6);
+
 export default function Home() {
   return (
     <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(52,120,246,0.14),transparent_28%),linear-gradient(180deg,var(--background)_0%,rgba(247,248,252,0.96)_100%)] text-foreground dark:bg-[radial-gradient(circle_at_top,_rgba(52,120,246,0.18),transparent_30%),linear-gradient(180deg,#0B1220_0%,#0E172A_100%)]">
+      <SiteHeader />
+
       <div className="mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 lg:px-8">
-        <header className="sticky top-4 z-30 mb-8 rounded-full border border-border/80 bg-card/75 px-3 py-2 shadow-[0_20px_50px_rgba(23,36,59,0.08)] backdrop-blur-xl">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,#17243B_0%,#3478F6_100%)] text-sm font-bold text-white shadow-lg shadow-blue-500/25">
-                F
-              </div>
-              <div>
-                <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-muted-foreground">FixMate</p>
-                <p className="text-sm font-semibold">Repair tech network</p>
-              </div>
-            </div>
-
-            <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
-              <Link href="#services" className="transition-colors hover:text-foreground">Services</Link>
-              <Link href="#process" className="transition-colors hover:text-foreground">Process</Link>
-              <Link href="#coverage" className="transition-colors hover:text-foreground">Coverage</Link>
-              <Link href="#pricing" className="transition-colors hover:text-foreground">Pricing</Link>
-            </nav>
-
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <Link href="/dashboard">
-                <Button className="rounded-full bg-[linear-gradient(135deg,#17243B_0%,#3478F6_100%)] text-white shadow-lg shadow-blue-500/20">
-                  View dashboard
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </header>
-
         <main className="space-y-14">
           <section className="grid items-center gap-8 pb-8 pt-6 lg:grid-cols-[1.2fr_0.8fr] lg:pt-10">
             <div>
@@ -104,7 +90,7 @@ export default function Home() {
               </p>
 
               <div className="mt-8 flex flex-wrap items-center gap-3">
-                <Link href="/dashboard">
+                <Link href="/services">
                   <Button className="rounded-full bg-[linear-gradient(135deg,#17243B_0%,#3478F6_100%)] px-5 text-base text-white shadow-[0_18px_40px_rgba(52,120,246,0.28)]">
                     Book a repair
                     <ArrowRight className="size-4" />
@@ -186,7 +172,7 @@ export default function Home() {
             </div>
 
             <div className="grid gap-5 md:grid-cols-3">
-              {services.map(({ icon: Icon, title, description }) => (
+              {servicePillars.map(({ icon: Icon, title, description }) => (
                 <Card key={title} className="group border-border bg-card/80 shadow-[0_18px_40px_rgba(23,36,59,0.06)] transition-transform duration-300 hover:-translate-y-1 hover:shadow-[0_28px_60px_rgba(23,36,59,0.12)]">
                   <CardHeader className="p-5">
                     <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(52,120,246,0.14),rgba(54,185,154,0.12))] text-[var(--electric-blue)]">
@@ -199,6 +185,85 @@ export default function Home() {
                   </CardContent>
                 </Card>
               ))}
+            </div>
+          </section>
+
+          <section className="space-y-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-600 dark:text-blue-300">Popular repairs</p>
+                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-foreground sm:text-4xl">Latest approved services</h2>
+              </div>
+              <Link href="/services">
+                <Button variant="outline" className="rounded-full px-4 py-2 text-sm">
+                  View all services
+                </Button>
+              </Link>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {latestServices.map((service, index) => {
+                const Icon = categoryIcons[index % categoryIcons.length]
+
+                return (
+                  <Card key={service.id} className="group overflow-hidden border-border bg-card/80 shadow-[0_18px_38px_rgba(23,36,59,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_26px_55px_rgba(23,36,59,0.12)]">
+                    <div className="overflow-hidden">
+                      <img src={service.image} alt={service.title} className="h-48 w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    </div>
+                    <CardHeader className="px-5 pt-5">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <span className="inline-flex items-center rounded-full bg-blue-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-blue-700 dark:text-blue-200">
+                          {service.category}
+                        </span>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-300">
+                          <CheckCircle2 className="size-3" />
+                          Approved
+                        </span>
+                      </div>
+                      <CardTitle className="text-xl">{service.title}</CardTitle>
+                      <CardDescription className="mt-2 text-sm leading-6">{service.shortDescription}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4 px-5 pb-5">
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <span className="flex items-center gap-2">
+                          <Icon className="size-4 text-blue-600" />
+                          {service.duration}
+                        </span>
+                        <span className="text-xl font-semibold text-foreground">${service.price}</span>
+                      </div>
+
+                      <Link href={`/services/${service.id}`}>
+                        <Button className="w-full rounded-full bg-[linear-gradient(135deg,#17243B_0%,#3478F6_100%)] text-white">
+                          View details
+                          <ArrowRight className="size-4" />
+                        </Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          </section>
+
+          <section className="space-y-6">
+            <div className="mb-6">
+              <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-600 dark:text-blue-300">Service categories</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-foreground sm:text-4xl">Repair support for every essential device.</h2>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {serviceCategories.map((category, index) => {
+                const Icon = categoryIcons[index % categoryIcons.length]
+                return (
+                  <div key={category} className="rounded-[24px] border border-border bg-card/80 p-4 shadow-[0_18px_35px_rgba(23,36,59,0.04)]">
+                    <div className="mb-4 flex size-11 items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(52,120,246,0.12),rgba(54,185,154,0.12))] text-blue-600 dark:text-blue-300">
+                      <Icon className="size-4" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-foreground">{category}</h3>
+                    <p className="mt-2 text-sm text-muted-foreground">Specialist diagnostics and repair coverage by certified technicians.</p>
+                  </div>
+                )
+              })}
             </div>
           </section>
 
@@ -299,6 +364,8 @@ export default function Home() {
           </section>
         </main>
       </div>
+
+      <SiteFooter />
     </div>
   );
 }
