@@ -22,8 +22,8 @@ Admin accounts are never created through the public sign-up route. The secure se
 
 - `POST /api/auth/admin/setup`
 - Requires a matching `secret` body value or `x-admin-setup-key` header.
-- Default fallback secret: `fixmate-admin-bootstrap`
-- Recommended production override: set `ADMIN_SETUP_KEY` in the runtime environment.
+- `ADMIN_SETUP_KEY` must be configured with at least 32 characters; the endpoint returns `503` when it is missing or too short. There is no built-in bootstrap secret.
+- Public BetterAuth sign-up accepts only the `customer` and `technician` roles.
 
 ## Frontend and backend integration
 
@@ -32,7 +32,7 @@ The frontend uses BetterAuth client helpers from `src/lib/auth-client.ts`:
 - `/sign-up` allows customer and technician registration.
 - `/sign-in` authenticates existing users.
 - `/dashboard` redirects users to the correct role dashboard.
-- `src/components/auth-guard.tsx` protects routes based on `user.role`.
+- Dashboard pages and mutation endpoints verify the BetterAuth session and role on the server.
 
 The backend route is exposed through:
 

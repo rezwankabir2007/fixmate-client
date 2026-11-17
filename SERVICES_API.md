@@ -75,6 +75,6 @@ Errors: `404` if no public service matches; `500` if MongoDB is unavailable.
 
 ## MongoDB service document
 
-Documents in `services` should have `id` (recommended stable URL slug), `title`, `category`, `shortDescription`, `description`, numeric `price`, `duration`, `status`, boolean `available`, `publishedAt` (a MongoDB date or a canonical UTC ISO-8601 string, stored consistently across the collection), and `image`. `serviceMode` is optional; if present, its values are discovered from approved, available services and exposed as the mode-filter options.
+Documents in `services` should have `id` (recommended stable URL slug), `title`, `category`, `shortDescription`, `description`, numeric `price`, `duration`, `status`, boolean `available`, `publishedAt` (a MongoDB date or a canonical UTC ISO-8601 string, stored consistently across the collection), and `image`. Services submitted by technicians also have `technicianId`, set from the authenticated session by the server. `serviceMode` is optional; if present, its values are discovered from approved, available services and exposed as the mode-filter options.
 
 The `status` and `available` values are part of the publication contract: only `status: "approved"` and `available: true` may appear in public list, detail, related-service, and API responses.
