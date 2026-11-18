@@ -70,7 +70,7 @@ const latestServices = getApprovedAvailableServices().slice(0, 6);
 
 export default function Home() {
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(52,120,246,0.14),transparent_28%),linear-gradient(180deg,var(--background)_0%,rgba(247,248,252,0.96)_100%)] text-foreground dark:bg-[radial-gradient(circle_at_top,_rgba(52,120,246,0.18),transparent_30%),linear-gradient(180deg,#0B1220_0%,#0E172A_100%)]">
+    <div className="relative min-h-screen overflow-x-clip bg-[radial-gradient(circle_at_top,_rgba(52,120,246,0.14),transparent_28%),linear-gradient(180deg,var(--background)_0%,rgba(247,248,252,0.96)_100%)] text-foreground dark:bg-[radial-gradient(circle_at_top,_rgba(52,120,246,0.18),transparent_30%),linear-gradient(180deg,#0B1220_0%,#0E172A_100%)]">
       <SiteHeader />
 
       <div className="mx-auto max-w-7xl px-4 pb-20 pt-6 sm:px-6 lg:px-8">
