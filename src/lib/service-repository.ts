@@ -1,10 +1,16 @@
-import { ObjectId, type Document, type Filter, type Sort } from "mongodb";
+import { ObjectId, type Filter, type Sort } from "mongodb";
+
 import {
   serviceCategories,
   type RepairService,
   type ServiceCategory,
 } from "@/lib/services";
+
 import { getMongoDatabase } from "@/lib/mongodb";
+
+// ---------------------------------------------
+// Types
+// ---------------------------------------------
 
 export type ServiceSort = "newest" | "price-asc" | "price-desc";
 
@@ -25,33 +31,45 @@ export type ServiceListResult = {
   serviceModes: string[];
 };
 
-type ServiceRecord = Document & {
+// Actual MongoDB service document structure
+type ServiceRecord = {
   _id: ObjectId;
-  id?: string;
   title: string;
   category: ServiceCategory;
-  shortDescription: string;
   description: string;
-  price: number;
-  duration: string;
-  status: string;
-  available: boolean;
-  publishedAt: Date | string;
   image: string;
-  serviceMode?: string;
+  basePrice: number;
+  estimatedDuration: string;
+  serviceMode: string;
+  serviceArea: string;
+  technicianName: string;
+  technicianEmail: string;
+  approvalStatus: "approved" | "pending" | "rejected";
+  isAvailable: boolean;
+  createdAt: Date | string;
 };
 
+// ---------------------------------------------
+// Public service filter
+// ---------------------------------------------
+
 const publicServiceFilter: Filter<ServiceRecord> = {
-  status: "approved",
-  available: true,
+  approvalStatus: "approved",
+  isAvailable: true,
 };
+
+// ---------------------------------------------
+// Parse URL search parameters
+// ---------------------------------------------
 
 export function parseServiceListParams(
   input: Record<string, string | string[] | undefined>,
 ): { params: ServiceListParams } | { error: string } {
   const single = (key: string) => {
     const value = input[key];
+
     if (Array.isArray(value)) return null;
+
     return value?.trim() ?? "";
   };
 
@@ -62,23 +80,59 @@ export function parseServiceListParams(
   const pageValue = single("page") || "1";
   const limitValue = single("limit") || "6";
 
-  if (q === null || category === null || serviceMode === null || sort === null || pageValue === null || limitValue === null) {
-    return { error: "Each query parameter may only be provided once." };
+  if (
+    q === null ||
+    category === null ||
+    serviceMode === null ||
+    sort === null ||
+    pageValue === null ||
+    limitValue === null
+  ) {
+    return {
+      error: "Each query parameter may only be provided once.",
+    };
   }
-  if (q.length > 100) return { error: "Search text must be 100 characters or fewer." };
-  if (category && !serviceCategories.includes(category as ServiceCategory)) {
-    return { error: "Choose a valid service category." };
+
+  if (q.length > 100) {
+    return {
+      error: "Search text must be 100 characters or fewer.",
+    };
   }
+
+  if (
+    category &&
+    !serviceCategories.includes(category as ServiceCategory)
+  ) {
+    return {
+      error: "Choose a valid service category.",
+    };
+  }
+
   if (!["newest", "price-asc", "price-desc"].includes(sort)) {
-    return { error: "Sort must be newest, price-asc, or price-desc." };
+    return {
+      error: "Sort must be newest, price-asc, or price-desc.",
+    };
   }
-  if (serviceMode.length > 60) return { error: "Service mode must be 60 characters or fewer." };
+
+  if (serviceMode.length > 60) {
+    return {
+      error: "Service mode must be 60 characters or fewer.",
+    };
+  }
 
   const page = Number(pageValue);
   const limit = Number(limitValue);
-  if (!Number.isInteger(page) || page < 1) return { error: "Page must be a positive integer." };
+
+  if (!Number.isInteger(page) || page < 1) {
+    return {
+      error: "Page must be a positive integer.",
+    };
+  }
+
   if (!Number.isInteger(limit) || limit < 1 || limit > 24) {
-    return { error: "Limit must be an integer between 1 and 24." };
+    return {
+      error: "Limit must be an integer between 1 and 24.",
+    };
   }
 
   return {
@@ -93,54 +147,119 @@ export function parseServiceListParams(
   };
 }
 
+// ---------------------------------------------
+// Escape regular expression characters
+// ---------------------------------------------
+
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// ---------------------------------------------
+// Convert MongoDB document to frontend service
+// ---------------------------------------------
+
 function toRepairService(record: ServiceRecord): RepairService {
-  const publishedAt =
-    record.publishedAt instanceof Date
-      ? record.publishedAt.toISOString()
-      : new Date(record.publishedAt).toISOString();
+  const date =
+    record.createdAt instanceof Date
+      ? record.createdAt
+      : new Date(record.createdAt);
+
+  const publishedAt = Number.isNaN(date.getTime())
+    ? new Date(0).toISOString()
+    : date.toISOString();
 
   return {
-    id: record.id || record._id.toHexString(),
+    id: record._id.toHexString(),
     title: record.title,
     category: record.category,
-    shortDescription: record.shortDescription,
-    description: record.description,
-    price: record.price,
-    duration: record.duration,
-    status: "approved",
-    available: true,
+    shortDescription: (record.description || "").slice(0, 140),
+    description: record.description || "",
+    price: Number(record.basePrice) || 0,
+    duration: record.estimatedDuration || "Not specified",
+    status: record.approvalStatus,
+    available: record.isAvailable,
     publishedAt,
-    image: record.image,
-    ...(record.serviceMode ? { serviceMode: record.serviceMode } : {}),
-  };
+    image: record.image || "",
+    serviceMode: record.serviceMode || "",
+    serviceArea: record.serviceArea || "",
+    technicianName: record.technicianName || "",
+    technicianEmail: record.technicianEmail || "",
+  } as RepairService;
 }
 
-function createFilter(params: ServiceListParams): Filter<ServiceRecord> {
-  const filter: Filter<ServiceRecord> = { ...publicServiceFilter };
+// ---------------------------------------------
+// Create MongoDB search and filter
+// ---------------------------------------------
 
-  if (params.category) filter.category = params.category;
-  if (params.serviceMode) filter.serviceMode = params.serviceMode;
+function createFilter(
+  params: ServiceListParams,
+): Filter<ServiceRecord> {
+  const filter: Filter<ServiceRecord> = {
+    ...publicServiceFilter,
+  };
+
+  if (params.category) {
+    filter.category = params.category;
+  }
+
+  if (params.serviceMode) {
+    filter.serviceMode = params.serviceMode;
+  }
+
   if (params.q) {
     const search = new RegExp(escapeRegex(params.q), "i");
-    filter.$or = [{ title: search }, { category: search }];
+
+    filter.$or = [
+      { title: search },
+      { category: search },
+      { description: search },
+      { technicianName: search },
+      { serviceArea: search },
+    ];
   }
 
   return filter;
 }
 
+// ---------------------------------------------
+// Sort services
+// ---------------------------------------------
+
 function sortFor(sort: ServiceSort): Sort {
-  if (sort === "price-asc") return { price: 1, _id: 1 };
-  if (sort === "price-desc") return { price: -1, _id: -1 };
-  return { publishedAt: -1, _id: -1 };
+  if (sort === "price-asc") {
+    return {
+      basePrice: 1,
+      _id: 1,
+    };
+  }
+
+  if (sort === "price-desc") {
+    return {
+      basePrice: -1,
+      _id: -1,
+    };
+  }
+
+  return {
+    createdAt: -1,
+    _id: -1,
+  };
 }
 
-export async function getPublicServices(params: ServiceListParams): Promise<ServiceListResult> {
-  const collection = (await getMongoDatabase()).collection<ServiceRecord>("services");
+// ---------------------------------------------
+// Get public services
+// ---------------------------------------------
+
+export async function getPublicServices(
+  params: ServiceListParams,
+): Promise<ServiceListResult> {
+  const collection = (await getMongoDatabase()).collection<ServiceRecord>(
+    "services",
+  );
+
   const filter = createFilter(params);
+
   const [records, total, rawServiceModes] = await Promise.all([
     collection
       .find(filter)
@@ -148,11 +267,18 @@ export async function getPublicServices(params: ServiceListParams): Promise<Serv
       .skip((params.page - 1) * params.limit)
       .limit(params.limit)
       .toArray(),
+
     collection.countDocuments(filter),
+
     collection.distinct("serviceMode", publicServiceFilter),
   ]);
+
   const serviceModes = rawServiceModes
-    .filter((mode): mode is string => typeof mode === "string" && mode.trim().length > 0)
+    .filter(
+      (mode): mode is string =>
+        typeof mode === "string" &&
+        mode.trim().length > 0,
+    )
     .sort((a, b) => a.localeCompare(b));
 
   return {
@@ -164,29 +290,53 @@ export async function getPublicServices(params: ServiceListParams): Promise<Serv
   };
 }
 
-export async function getPublicServiceById(id: string): Promise<RepairService | null> {
-  const collection = (await getMongoDatabase()).collection<ServiceRecord>("services");
-  const lookup: Filter<ServiceRecord>[] = [{ id }];
-  if (ObjectId.isValid(id)) lookup.push({ _id: new ObjectId(id) });
+// ---------------------------------------------
+// Get one public service by ID
+// ---------------------------------------------
+
+export async function getPublicServiceById(
+  id: string,
+): Promise<RepairService | null> {
+  if (!ObjectId.isValid(id)) {
+    return null;
+  }
+
+  const collection = (await getMongoDatabase()).collection<ServiceRecord>(
+    "services",
+  );
 
   const record = await collection.findOne({
     ...publicServiceFilter,
-    $or: lookup,
+    _id: new ObjectId(id),
   });
 
   return record ? toRepairService(record) : null;
 }
 
-export async function getRelatedPublicServices(service: RepairService, limit = 3) {
-  const collection = (await getMongoDatabase()).collection<ServiceRecord>("services");
+// ---------------------------------------------
+// Get related public services
+// ---------------------------------------------
+
+export async function getRelatedPublicServices(
+  service: RepairService,
+  limit = 3,
+): Promise<RepairService[]> {
+  const collection = (await getMongoDatabase()).collection<ServiceRecord>(
+    "services",
+  );
+
   const records = await collection
-    .find({ ...publicServiceFilter, category: service.category })
-    .sort({ publishedAt: -1, _id: -1 })
-    .limit(limit + 1)
+    .find({
+      ...publicServiceFilter,
+      category: service.category,
+      _id: { $ne: new ObjectId(service.id) },
+    })
+    .sort({
+      createdAt: -1,
+      _id: -1,
+    })
+    .limit(limit)
     .toArray();
 
-  return records
-    .map(toRepairService)
-    .filter((item) => item.id !== service.id)
-    .slice(0, limit);
+  return records.map(toRepairService);
 }

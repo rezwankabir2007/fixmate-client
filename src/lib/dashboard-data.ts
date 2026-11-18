@@ -1,4 +1,4 @@
-import { ObjectId, type Document, type Filter } from "mongodb";
+import type { Document, ObjectId } from "mongodb";
 import { getMongoDatabase } from "@/lib/mongodb";
 
 export type DashboardServiceRecord = {
@@ -43,17 +43,6 @@ type AccountDocument = Document & {
   createdAt?: Date | string;
 };
 
-export type NewTechnicianService = {
-  title: string;
-  category: string;
-  shortDescription: string;
-  description: string;
-  price: number;
-  duration: string;
-  image: string;
-  serviceMode?: string;
-};
-
 function toIsoDate(value: Date | string | undefined) {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
@@ -84,12 +73,6 @@ function toDashboardAccount(record: AccountDocument): DashboardAccountRecord {
   };
 }
 
-function serviceLookup(id: string): Filter<ServiceDocument>[] {
-  const filters: Filter<ServiceDocument>[] = [{ id }];
-  if (ObjectId.isValid(id)) filters.push({ _id: new ObjectId(id) });
-  return filters;
-}
-
 export async function getTechnicianServices(technicianId: string) {
   const collection = (await getMongoDatabase()).collection<ServiceDocument>("services");
   const records = await collection
@@ -118,44 +101,6 @@ export async function getAdminAccounts() {
     .limit(200)
     .toArray();
   return records.map(toDashboardAccount);
-}
-
-export async function addTechnicianService(
-  input: NewTechnicianService,
-  technicianId: string,
-) {
-  const collection = (await getMongoDatabase()).collection<ServiceDocument>("services");
-  const serviceId = new ObjectId().toHexString();
-  const document = {
-    id: serviceId,
-    ...input,
-    technicianId,
-    status: "pending",
-    available: false,
-    publishedAt: new Date(),
-  };
-  await collection.insertOne(document);
-  return serviceId;
-}
-
-export async function moderatePendingService(
-  id: string,
-  status: "approved" | "rejected",
-  adminId: string,
-) {
-  const collection = (await getMongoDatabase()).collection<ServiceDocument>("services");
-  const result = await collection.updateOne(
-    { status: "pending", $or: serviceLookup(id) },
-    {
-      $set: {
-        status,
-        available: status === "approved",
-        moderatedAt: new Date(),
-        moderatedBy: adminId,
-      },
-    },
-  );
-  return result.matchedCount > 0;
 }
 
 export async function getAdminDashboardCounts() {

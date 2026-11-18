@@ -27,6 +27,7 @@ export default async function AdminDashboardPage() {
       description="Review real account and service data. Booking and transaction tools need their backend integrations."
     >
       {loadFailed ? <DashboardDataError feature="Admin overview" /> : null}
+
       {counts ? (
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {[
@@ -45,6 +46,20 @@ export default async function AdminDashboardPage() {
                 </CardContent>
               </Card>
             </Link>
+          ))}
+        </section>
+      ) : !loadFailed ? (
+        // ডেটা লোড না হলে বা জিরো থাকলে একটি ডিফল্ট বা স্কেলিটন স্টেট দেখাতে পারেন
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {["Accounts", "Service listings", "Pending service reviews"].map((label) => (
+            <Card key={label} className="h-full border-border bg-card/80 opacity-60">
+              <CardContent className="flex items-center justify-between gap-4 p-5">
+                <div>
+                  <p className="text-sm text-muted-foreground">{label}</p>
+                  <p className="mt-2 text-3xl font-semibold text-foreground">-</p>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </section>
       ) : null}

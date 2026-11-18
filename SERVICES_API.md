@@ -2,6 +2,8 @@
 
 The public service pages read the `services` collection from the MongoDB database configured by `MONGODB_URI` and optional `MONGODB_DATABASE` (defaults to `fixmate`). Set `MONGODB_URI` to a reachable MongoDB deployment before using the catalog; there is no static-data fallback for these routes. Listing and detail results are always limited to documents with `status: "approved"` and `available: true`. Pending, rejected, or unavailable services are not exposed.
 
+The existing `/api/services` and `/api/services/[id]` endpoints are served by Express. The Next.js catch-all API route forwards browser requests to the configured `FIXMATE_API_URL`, preserving their public paths and query strings.
+
 ## `GET /api/services`
 
 Returns a server-filtered, server-sorted, and server-paginated service list.

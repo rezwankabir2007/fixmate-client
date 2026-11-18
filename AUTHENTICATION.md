@@ -2,9 +2,9 @@
 
 ## Source of truth
 
-The app uses the single BetterAuth instance configured in `src/lib/auth.ts`, backed by the MongoDB adapter and `MONGODB_URI`. The browser-only client in `src/lib/auth-client.ts` calls the app's BetterAuth API route; it does not create another server instance or import server configuration.
+The app uses one Better Auth instance configured in `fixmate-server/config/auth.js`, backed by the MongoDB adapter and the `fixmate` database selected by `MONGODB_URI`. The browser-only client in `src/lib/auth-client.ts` calls the same-origin API proxy in `src/app/api/[...proxy]/route.ts`; the proxy forwards requests to Express without creating another auth instance.
 
-The API is exposed at `/api/auth/[...all]`. Its `GET` and `POST` handlers delegate to BetterAuth. The `POST` handler additionally blocks public admin registration and role changes through profile updates.
+The API is exposed at `/api/auth/*` by Express and keeps its existing frontend-facing path through the proxy. The auth middleware blocks public admin registration and role changes through profile updates. Dashboard server rendering checks sessions against the Express Better Auth endpoint.
 
 ## Roles and registration
 
@@ -26,12 +26,19 @@ Existing MongoDB user records must contain the correct `role` value for role-bas
 
 ## Required environment
 
-Configure these values in the server environment:
+Configure these values in the Express backend environment:
 
 ```text
 MONGODB_URI=<MongoDB connection string>
 BETTER_AUTH_SECRET=<at least 32 random characters>
 ADMIN_SETUP_KEY=<at least 32 random characters>
+CLIENT_URL=<frontend origin>
 ```
 
-Use the same canonical application origin for the BetterAuth server and browser deployment. Do not expose server secrets through `NEXT_PUBLIC_*` variables.
+Configure this frontend server-side variable to the Express origin:
+
+```text
+FIXMATE_API_URL=http://localhost:5000
+```
+
+In production, set `FIXMATE_API_URL` to the reachable Express origin and `CLIENT_URL` to the frontend origin. The proxy forwards the frontend host and protocol to Better Auth. Do not expose server secrets through `NEXT_PUBLIC_*` variables.

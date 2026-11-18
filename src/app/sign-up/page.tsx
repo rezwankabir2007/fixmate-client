@@ -52,16 +52,6 @@ const ALLOWED_IMAGE_TYPES = [
   "image/gif",
 ];
 
-// ফাইলকে Base64 স্ট্রিং-এ রূপান্তর করার হেল্পার ফাংশন
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = (error) => reject(error);
-    reader.readAsDataURL(file);
-  });
-}
-
 export default function SignUpPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -161,24 +151,58 @@ export default function SignUpPage() {
       let imageUrl: string | undefined = undefined;
 
       if (imageFile) {
-        // অপশন ১: সরাসরি Base64 হিসেবে পাঠানো (কোনো এক্সট্রা API ছাড়াই কাজ করবে)
-        imageUrl = await fileToBase64(imageFile);
-
-        /* 
-        // অপশন ২: আপনি যদি Cloudinary বা নিজের /api/upload ব্যবহার করতে চান, 
-        // তবে উপরের লাইনটি কমেন্ট করে নিচের কোডটি ব্যবহার করুন:
+        // Upload the photo first, then sign up with the returned Cloudinary URL.
         const formData = new FormData();
-        formData.append("file", imageFile);
-        const uploadRes = await fetch("/api/upload", {
-          method: "POST",
-          body: formData,
-        });
-        if (!uploadRes.ok) {
-          throw new Error("Failed to upload profile image.");
+        formData.append("image", imageFile);
+
+        let uploadResponse: Response;
+        try {
+          uploadResponse = await fetch("/api/upload/profile-image", {
+            method: "POST",
+            body: formData,
+          });
+        } catch {
+          toast.error(
+            "Image upload failed. Check your connection and try again."
+          );
+          return;
         }
-        const uploadData = await uploadRes.json();
-        imageUrl = uploadData.url;
-        */
+
+        if (!uploadResponse.ok) {
+          let uploadMessage = "Image upload failed. Please try again.";
+          try {
+            const errorData = await uploadResponse.json();
+            if (
+              errorData &&
+              typeof errorData.error === "string" &&
+              errorData.error.trim()
+            ) {
+              uploadMessage = errorData.error;
+            }
+          } catch {
+            // Keep the default message when the response is not JSON.
+          }
+          toast.error(uploadMessage);
+          return;
+        }
+
+        let uploadData: { secure_url?: unknown };
+        try {
+          uploadData = await uploadResponse.json();
+        } catch {
+          toast.error("Image upload failed. Please try again.");
+          return;
+        }
+
+        if (
+          typeof uploadData.secure_url !== "string" ||
+          !uploadData.secure_url
+        ) {
+          toast.error("Image upload failed. Please try again.");
+          return;
+        }
+
+        imageUrl = uploadData.secure_url;
       }
 
       const result = await authClient.signUp.email({
