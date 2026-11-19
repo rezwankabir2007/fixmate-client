@@ -1,65 +1,94 @@
-import type { Metadata } from "next"
-import Link from "next/link"
-import { notFound } from "next/navigation"
-import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, ShieldCheck } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { SiteFooter } from "@/components/site-footer"
-import { SiteHeader } from "@/components/site-header"
-import { getPublicServiceById, getRelatedPublicServices } from "@/lib/service-repository"
+import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { connection } from "next/server";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  Clock3,
+  ShieldCheck,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SiteFooter } from "@/components/site-footer";
+import { SiteHeader } from "@/components/site-header";
+import {
+  getPublicServiceById,
+  getRelatedPublicServices,
+} from "@/lib/service-repository";
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const { id } = await params
-  let service
+type PageProps = {
+  params: Promise<{ id: string }>;
+};
+
+export async function generateMetadata({
+  params,
+}: PageProps): Promise<Metadata> {
+  await connection();
+  const { id } = await params;
 
   try {
-    service = await getPublicServiceById(id)
+    const service = await getPublicServiceById(id);
+    if (!service) {
+      return { title: "Service not found | FixMate" };
+    }
+    return {
+      title: `${service.title} | FixMate`,
+      description: service.shortDescription,
+    };
   } catch (error) {
-    console.error(`Failed to load metadata for service "${id}".`, error)
-    return { title: "Service details | FixMate" }
-  }
-
-  if (!service) {
-    return { title: "Service not found | FixMate" }
-  }
-
-  return {
-    title: `${service.title} | FixMate`,
-    description: service.shortDescription,
+    console.error(`Failed to load metadata for service "${id}".`, error);
+    return { title: "Service details | FixMate" };
   }
 }
 
-export default async function ServiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
-  let service
-  let relatedServices
+export default async function ServiceDetailPage({ params }: PageProps) {
+  await connection();
+  const { id } = await params;
+
+  let service = null;
+  let relatedServices: Awaited<ReturnType<typeof getRelatedPublicServices>> =
+    [];
 
   try {
-    service = await getPublicServiceById(id)
-    if (service) relatedServices = await getRelatedPublicServices(service)
+    service = await getPublicServiceById(id);
+    if (service) {
+      relatedServices = await getRelatedPublicServices(service);
+    }
   } catch (error) {
-    console.error(`Failed to load service details for "${id}".`, error)
+    console.error(`Failed to load service details for "${id}".`, error);
 
     return (
       <div className="min-h-screen bg-background text-foreground">
         <SiteHeader />
         <main className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8">
-          <div role="alert" className="rounded-[28px] border border-red-500/20 bg-red-500/5 p-8 text-center">
-            <h1 className="text-2xl font-semibold text-foreground">Service details are temporarily unavailable</h1>
-            <p className="mt-3 text-muted-foreground">Please try again in a moment or browse the full service catalog.</p>
+          <div
+            role="alert"
+            className="rounded-[28px] border border-red-500/20 bg-red-500/5 p-8 text-center"
+          >
+            <h1 className="text-2xl font-semibold text-foreground">
+              Service details are temporarily unavailable
+            </h1>
+            <p className="mt-3 text-muted-foreground">
+              Please try again in a moment or browse the full service catalog.
+            </p>
             <Link href="/services" className="mt-6 inline-flex">
-              <Button variant="outline" className="rounded-full">Back to services</Button>
+              <Button variant="outline" className="rounded-full">
+                Back to services
+              </Button>
             </Link>
           </div>
         </main>
         <SiteFooter />
       </div>
-    )
+    );
   }
 
   if (!service) {
-    notFound()
+    notFound();
   }
 
   return (
@@ -67,7 +96,10 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
       <SiteHeader />
 
       <main className="mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6 lg:px-8">
-        <Link href="/services" className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
+        <Link
+          href="/services"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
           <ArrowLeft className="size-4" />
           Back to services
         </Link>
@@ -75,22 +107,37 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
         <section className="mt-6 overflow-hidden rounded-[32px] border border-border bg-card/80 shadow-[0_25px_70px_rgba(23,36,59,0.08)]">
           <div className="grid gap-0 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="overflow-hidden">
-              <img src={service.image} alt={service.title} className="h-full min-h-[320px] w-full object-cover" />
+              <Image
+                src={service.image || "/placeholder-service.jpg"}
+                alt={service.title}
+                width={800}
+                height={500}
+                className="h-full min-h-[320px] w-full object-cover"
+                unoptimized
+              />
             </div>
 
             <div className="p-6 sm:p-8">
               <div className="flex flex-wrap items-center gap-3">
-                <Badge className="rounded-full border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-200">{service.category}</Badge>
+                <Badge className="rounded-full border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-200">
+                  {service.category}
+                </Badge>
                 <Badge className="rounded-full border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
                   <CheckCircle2 className="size-3.5" /> Available
                 </Badge>
                 {service.serviceMode ? (
-                  <Badge variant="outline" className="rounded-full">{service.serviceMode}</Badge>
+                  <Badge variant="outline" className="rounded-full">
+                    {service.serviceMode}
+                  </Badge>
                 ) : null}
               </div>
 
-              <h1 className="mt-5 text-4xl font-semibold tracking-[-0.05em] text-foreground">{service.title}</h1>
-              <p className="mt-4 text-lg leading-8 text-muted-foreground">{service.description}</p>
+              <h1 className="mt-5 text-4xl font-semibold tracking-[-0.05em] text-foreground">
+                {service.title}
+              </h1>
+              <p className="mt-4 text-lg leading-8 text-muted-foreground">
+                {service.description}
+              </p>
 
               <div className="mt-6 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 <span className="inline-flex items-center gap-2 rounded-full border border-border bg-muted/50 px-3 py-2">
@@ -104,10 +151,16 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
               </div>
 
               <div className="mt-8 rounded-[24px] border border-border bg-[linear-gradient(135deg,rgba(52,120,246,0.08),rgba(54,185,154,0.06),transparent)] p-5">
-                <p className="text-sm uppercase tracking-[0.18em] text-muted-foreground">Starting from</p>
+                <p className="text-sm uppercase tracking-[0.18em] text-muted-foreground">
+                  Starting from
+                </p>
                 <div className="mt-2 flex items-end gap-2">
-                  <span className="text-4xl font-semibold tracking-tight text-foreground">${service.price}</span>
-                  <span className="pb-1 text-sm text-muted-foreground">one-time fee</span>
+                  <span className="text-4xl font-semibold tracking-tight text-foreground">
+                    ${service.price}
+                  </span>
+                  <span className="pb-1 text-sm text-muted-foreground">
+                    one-time fee
+                  </span>
                 </div>
               </div>
 
@@ -150,7 +203,9 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
 
           <Card className="border-border bg-card/80 shadow-[0_20px_50px_rgba(23,36,59,0.05)]">
             <CardHeader className="px-6 pt-6">
-              <CardTitle className="text-2xl">Why customers choose FixMate</CardTitle>
+              <CardTitle className="text-2xl">
+                Why customers choose FixMate
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 px-6 pb-6">
               {[
@@ -159,9 +214,14 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
                 { label: "Coverage", value: "89 service zones" },
                 { label: "Support", value: "24/7 live assistance" },
               ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between rounded-2xl border border-border bg-muted/40 p-3">
+                <div
+                  key={item.label}
+                  className="flex items-center justify-between rounded-2xl border border-border bg-muted/40 p-3"
+                >
                   <span className="text-muted-foreground">{item.label}</span>
-                  <span className="font-semibold text-foreground">{item.value}</span>
+                  <span className="font-semibold text-foreground">
+                    {item.value}
+                  </span>
                 </div>
               ))}
             </CardContent>
@@ -170,8 +230,13 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
 
         <section className="mt-12 space-y-6">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-3xl font-semibold tracking-[-0.05em] text-foreground">More services</h2>
-            <Link href="/services" className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
+            <h2 className="text-3xl font-semibold tracking-[-0.05em] text-foreground">
+              More services
+            </h2>
+            <Link
+              href="/services"
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
               Explore all
               <ArrowRight className="size-4" />
             </Link>
@@ -179,12 +244,24 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
 
           <div className="grid gap-5 md:grid-cols-3">
             {(relatedServices ?? []).map((item) => (
-              <Card key={item.id} className="overflow-hidden border-border bg-card/80 shadow-[0_18px_35px_rgba(23,36,59,0.06)]">
+              <Card
+                key={item.id}
+                className="overflow-hidden border-border bg-card/80 shadow-[0_18px_35px_rgba(23,36,59,0.06)]"
+              >
                 <div className="overflow-hidden">
-                  <img src={item.image} alt={item.title} className="h-40 w-full object-cover" />
+                  <Image
+                    src={item.image || "/placeholder-service.jpg"}
+                    alt={item.title}
+                    width={500}
+                    height={300}
+                    className="h-40 w-full object-cover"
+                    unoptimized
+                  />
                 </div>
                 <CardHeader className="px-5 pt-5">
-                  <Badge className="w-fit rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-200">{item.category}</Badge>
+                  <Badge className="w-fit rounded-full bg-blue-500/10 text-blue-700 dark:text-blue-200">
+                    {item.category}
+                  </Badge>
                   <CardTitle className="mt-3 text-xl">{item.title}</CardTitle>
                 </CardHeader>
                 <CardContent className="px-5 pb-5">
@@ -202,5 +279,5 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
 
       <SiteFooter />
     </div>
-  )
+  );
 }

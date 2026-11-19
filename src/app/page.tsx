@@ -1,4 +1,4 @@
-
+import { Suspense } from "react";
 import Link from "next/link";
 
 import {
@@ -108,9 +108,105 @@ const highlights = [
   },
 ];
 
-export default async function Home() {
-  const latestServices: Service[] = await getFeaturedServices();
+function FeaturedServicesSkeleton() {
+  return (
+    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div
+          key={index}
+          className="h-96 animate-pulse rounded-2xl border border-border bg-card/80 p-5"
+        >
+          <div className="h-44 w-full rounded-xl bg-muted" />
+          <div className="mt-4 h-6 w-2/3 rounded bg-muted" />
+          <div className="mt-2 h-4 w-full rounded bg-muted" />
+          <div className="mt-6 h-10 w-full rounded-full bg-muted" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
+async function LatestServicesList() {
+  let latestServices: Service[] = [];
+
+  try {
+    latestServices = await getFeaturedServices();
+  } catch (error) {
+    console.error("Failed to fetch featured services:", error);
+    return (
+      <div className="rounded-2xl border border-border bg-card/80 p-6 text-center text-sm text-muted-foreground">
+        Featured services could not be loaded right now.
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+      {latestServices.map((service: Service, index: number) => {
+        const Icon = categoryIcons[index % categoryIcons.length];
+
+        return (
+          <Card
+            key={service.id}
+            className="group overflow-hidden border-border bg-card/80 shadow-[0_18px_38px_rgba(23,36,59,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_26px_55px_rgba(23,36,59,0.12)]"
+          >
+            <div className="overflow-hidden">
+              <Image
+                src={service.image || "/placeholder-service.jpg"}
+                alt={service.title}
+                width={500}
+                height={300}
+                className="h-48 w-full object-cover"
+                unoptimized
+              />
+            </div>
+
+            <CardHeader className="px-5 pt-5">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <span className="inline-flex items-center rounded-full bg-blue-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-blue-700 dark:text-blue-200">
+                  {service.category}
+                </span>
+
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-300">
+                  <CheckCircle2 className="size-3" />
+                  Approved
+                </span>
+              </div>
+
+              <CardTitle className="text-xl">{service.title}</CardTitle>
+
+              <CardDescription className="mt-2 text-sm leading-6">
+                {service.shortDescription}
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="space-y-4 px-5 pb-5">
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span className="flex items-center gap-2">
+                  <Icon className="size-4 text-blue-600" />
+                  {service.duration}
+                </span>
+
+                <span className="text-xl font-semibold text-foreground">
+                  ${service.price}
+                </span>
+              </div>
+
+              <Link href={`/services/${service.id}`}>
+                <Button className="w-full rounded-full bg-[linear-gradient(135deg,#17243B_0%,#3478F6_100%)] text-white">
+                  View details
+                  <ArrowRight className="size-4" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function Home() {
   return (
     <div className="relative min-h-screen overflow-x-clip bg-[radial-gradient(circle_at_top,_rgba(52,120,246,0.14),transparent_28%),linear-gradient(180deg,var(--background)_0%,rgba(247,248,252,0.96)_100%)] text-foreground dark:bg-[radial-gradient(circle_at_top,_rgba(52,120,246,0.18),transparent_30%),linear-gradient(180deg,#0B1220_0%,#0E172A_100%)]">
       <SiteHeader />
@@ -305,70 +401,9 @@ export default async function Home() {
               </Link>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {latestServices.map((service: Service, index: number) => {
-                const Icon = categoryIcons[index % categoryIcons.length];
-
-                return (
-                  <Card
-                    key={service.id}
-                    className="group overflow-hidden border-border bg-card/80 shadow-[0_18px_38px_rgba(23,36,59,0.06)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_26px_55px_rgba(23,36,59,0.12)]"
-                  >
-                    <div className="overflow-hidden">
-                      <Image
-                        src={service.image || "/placeholder-service.jpg"}
-                        alt={service.title}
-                        width={500}
-                        height={300}
-                        className="h-48 w-full object-cover"
-                        unoptimized
-                      />
-                    </div>
-
-                    <CardHeader className="px-5 pt-5">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        <span className="inline-flex items-center rounded-full bg-blue-500/10 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-blue-700 dark:text-blue-200">
-                          {service.category}
-                        </span>
-
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-medium uppercase tracking-[0.16em] text-emerald-600 dark:text-emerald-300">
-                          <CheckCircle2 className="size-3" />
-                          Approved
-                        </span>
-                      </div>
-
-                      <CardTitle className="text-xl">
-                        {service.title}
-                      </CardTitle>
-
-                      <CardDescription className="mt-2 text-sm leading-6">
-                        {service.shortDescription}
-                      </CardDescription>
-                    </CardHeader>
-
-                    <CardContent className="space-y-4 px-5 pb-5">
-                      <div className="flex items-center justify-between text-sm text-muted-foreground">
-                        <span className="flex items-center gap-2">
-                          <Icon className="size-4 text-blue-600" />
-                          {service.duration}
-                        </span>
-
-                        <span className="text-xl font-semibold text-foreground">
-                          ${service.price}
-                        </span>
-                      </div>
-
-                      <Link href={`/services/${service.id}`}>
-                        <Button className="w-full rounded-full bg-[linear-gradient(135deg,#17243B_0%,#3478F6_100%)] text-white">
-                          View details
-                          <ArrowRight className="size-4" />
-                        </Button>
-                      </Link>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
+            <Suspense fallback={<FeaturedServicesSkeleton />}>
+              <LatestServicesList />
+            </Suspense>
           </section>
 
           <section className="space-y-6">
