@@ -2,21 +2,31 @@ import Link from "next/link";
 import { ArrowRight, ClipboardList, Layers3, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { BackendFeatureNotice, DashboardDataError } from "@/components/dashboard-states";
+import { BackendFeatureNotice, DashboardDataError, DashboardLinkCard } from "@/components/dashboard-states";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { requireDashboardUser } from "@/lib/dashboard-auth";
 import { getAdminDashboardCounts } from "@/lib/dashboard-data";
+import { serverApi } from "@/lib/server-api";
+import type { BookingRecord } from "@/lib/bookings";
 
 export default async function AdminDashboardPage() {
   const user = await requireDashboardUser("admin");
   let counts: Awaited<ReturnType<typeof getAdminDashboardCounts>> | null = null;
   let loadFailed = false;
+  let bookingTotal: number | null = null;
 
   try {
     counts = await getAdminDashboardCounts();
   } catch (error) {
     console.error("Failed to load admin dashboard counts.", error);
     loadFailed = true;
+  }
+
+  try {
+    const response = await serverApi<{ data: BookingRecord[]; total?: number }>("/api/bookings");
+    bookingTotal = response.total ?? response.data?.length ?? 0;
+  } catch (error) {
+    console.error("Failed to load booking totals.", error);
   }
 
   return (
@@ -34,6 +44,7 @@ export default async function AdminDashboardPage() {
             { label: "Accounts", value: counts.accounts, icon: Users, href: "/dashboard/admin/users" },
             { label: "Service listings", value: counts.services, icon: Layers3, href: "/dashboard/admin/services" },
             { label: "Pending service reviews", value: counts.pendingServices, icon: ClipboardList, href: "/dashboard/admin/services" },
+            { label: "Repair requests", value: bookingTotal ?? "-", icon: ClipboardList, href: "/dashboard/admin/bookings" },
           ].map(({ label, value, icon: Icon, href }) => (
             <Link key={label} href={href} className="block rounded-2xl">
               <Card className="h-full border-border bg-card/80 transition-colors hover:border-blue-500/30">
@@ -65,9 +76,10 @@ export default async function AdminDashboardPage() {
       ) : null}
 
       <section className="mt-6 grid gap-4 md:grid-cols-2">
-        <BackendFeatureNotice
-          title="Booking management is not connected"
-          description="The project has no booking collection or booking API, so there are no booking totals or controls to display."
+        <DashboardLinkCard
+          href="/dashboard/admin/bookings"
+          title="Booking management"
+          description="Review every repair request read-only; status changes stay with the technician and customer."
         />
         <BackendFeatureNotice
           title="Transaction management is not connected"

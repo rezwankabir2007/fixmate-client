@@ -1,29 +1,35 @@
-import { BackendFeatureNotice, EmptyTable } from "@/components/dashboard-states";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { DashboardDataError } from "@/components/dashboard-states";
+import { TechnicianRequestsBoard } from "@/components/technician-requests-board";
 import { requireDashboardUser } from "@/lib/dashboard-auth";
+import type { BookingRecord } from "@/lib/bookings";
+import { serverApi } from "@/lib/server-api";
 
 export default async function TechnicianRequestsPage() {
   const user = await requireDashboardUser("technician");
+
+  let bookings: BookingRecord[] = [];
+  let loadError = false;
+
+  try {
+    const response = await serverApi<{ data: BookingRecord[] }>("/api/bookings/assigned");
+    bookings = response.data ?? [];
+  } catch {
+    loadError = true;
+  }
 
   return (
     <DashboardShell
       user={user}
       activeHref="/dashboard/technician/requests"
       title="Booking requests"
-      description="Requests should be scoped to services and bookings assigned to your technician account."
+      description="Requests for your services. Accept, start, and complete work — only you can advance your own requests."
     >
-      <BackendFeatureNotice
-        title="Request assignment backend required"
-        description="No booking collection or technician assignment API exists yet. The page will not show other technicians’ requests or create sample jobs."
-      />
-      <div className="mt-5">
-        <EmptyTable
-          title="No request data is connected"
-          description="A booking/request model with a server-enforced technicianId filter is required."
-          columns={5}
-          headers={["Request", "Service", "Customer", "Requested time", "Status"]}
-        />
-      </div>
+      {loadError ? (
+        <DashboardDataError feature="Booking requests" />
+      ) : (
+        <TechnicianRequestsBoard bookings={bookings} />
+      )}
     </DashboardShell>
   );
 }

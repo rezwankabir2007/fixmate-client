@@ -1,29 +1,38 @@
-import { BackendFeatureNotice, EmptyTable } from "@/components/dashboard-states";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { CustomerBookingsList } from "@/components/customer-bookings-list";
+import { DashboardDataError } from "@/components/dashboard-states";
 import { requireDashboardUser } from "@/lib/dashboard-auth";
+import { serverApi } from "@/lib/server-api";
+import type { BookingRecord } from "@/lib/bookings";
+
+export const instant = false;
+
 
 export default async function CustomerBookingsPage() {
   const user = await requireDashboardUser("customer");
+
+  let bookings: BookingRecord[] = [];
+  let loadError: string | null = null;
+
+  try {
+    const response = await serverApi<{ data: BookingRecord[] }>("/api/bookings/mine");
+    bookings = response.data ?? [];
+  } catch (error) {
+    loadError = error instanceof Error ? error.message : "Could not load your bookings.";
+  }
 
   return (
     <DashboardShell
       user={user}
       activeHref="/dashboard/customer/bookings"
       title="Your bookings"
-      description="Only your own booking records belong in this workspace."
+      description="Repair requests you have submitted, with live status and payment state."
     >
-      <BackendFeatureNotice
-        title="Bookings backend required"
-        description="There is no booking collection or booking API in the current project. This page does not load or invent booking records."
-      />
-      <div className="mt-5">
-        <EmptyTable
-          title="No booking data is connected"
-          description="A customer-scoped booking API is needed before bookings can appear here."
-          columns={5}
-          headers={["Booking", "Service", "Technician", "Schedule", "Status"]}
-        />
-      </div>
+      {loadError ? (
+        <DashboardDataError feature="Your bookings" />
+      ) : (
+        <CustomerBookingsList bookings={bookings} />
+      )}
     </DashboardShell>
   );
 }

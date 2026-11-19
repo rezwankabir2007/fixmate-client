@@ -3,18 +3,21 @@ import { ArrowRight, BriefcaseBusiness, Clock3, Plus, Wrench } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  BackendFeatureNotice,
   DashboardDataError,
   DashboardLinkCard,
 } from "@/components/dashboard-states";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { requireDashboardUser } from "@/lib/dashboard-auth";
 import { getTechnicianServices } from "@/lib/dashboard-data";
+import { serverApi } from "@/lib/server-api";
+import { isActiveBooking, type BookingRecord } from "@/lib/bookings";
 
 export default async function TechnicianDashboardPage() {
   const user = await requireDashboardUser("technician");
   let services = null;
   let loadFailed = false;
+  let requests: BookingRecord[] | null = null;
+  let requestsLoadFailed = false;
 
   try {
     services = await getTechnicianServices(user.id);
@@ -23,8 +26,19 @@ export default async function TechnicianDashboardPage() {
     loadFailed = true;
   }
 
+  try {
+    const response = await serverApi<{ data: BookingRecord[] }>("/api/bookings/assigned");
+    requests = response.data ?? [];
+  } catch (error) {
+    console.error(`Failed to load requests for technician "${user.id}".`, error);
+    requestsLoadFailed = true;
+  }
+
   const pendingCount = services?.filter((service) => service.status === "pending").length ?? 0;
   const approvedCount = services?.filter((service) => service.status === "approved").length ?? 0;
+  const newRequests =
+    requests?.filter((booking) => booking.status === "requested").length ?? 0;
+  const activeJobs = requests?.filter((booking) => isActiveBooking(booking.status)).length ?? 0;
 
   return (
     <DashboardShell
@@ -54,16 +68,28 @@ export default async function TechnicianDashboardPage() {
         </section>
       ) : null}
 
+      {requestsLoadFailed ? <DashboardDataError feature="Your booking requests" /> : null}
+      {requests ? (
+        <section className="mt-6 grid gap-4 sm:grid-cols-3">
+          {[
+            { label: "Requests received", value: requests.length },
+            { label: "Awaiting your response", value: newRequests },
+            { label: "Active jobs", value: activeJobs },
+          ].map(({ label, value }) => (
+            <Card key={label} className="border-border bg-card/80">
+              <CardContent className="p-5">
+                <p className="text-sm text-muted-foreground">{label}</p>
+                <p className="mt-2 text-3xl font-semibold text-foreground">{value}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </section>
+      ) : null}
+
       <section className="mt-6 grid gap-4 md:grid-cols-2">
         <DashboardLinkCard href="/dashboard/technician/add-service" title="Add a service" description="Submit a listing for admin review." />
         <DashboardLinkCard href="/dashboard/technician/my-services" title="My services" description="View only listings submitted by your account." />
-      </section>
-
-      <section className="mt-6">
-        <BackendFeatureNotice
-          title="Booking requests are not connected"
-          description="No booking collection or request assignment flow exists in this project yet. Request counts and job actions are intentionally omitted."
-        />
+        <DashboardLinkCard href="/dashboard/technician/requests" title="Booking requests" description="Accept, start, and complete repair requests assigned to you." />
       </section>
 
       <div className="mt-6 flex flex-wrap gap-3">

@@ -14,6 +14,9 @@ export interface Service {
   serviceArea?: string;
   technicianName?: string;
   technicianEmail?: string;
+  technicianImage?: string | null;
+  technicianBio?: string | null;
+  technicianArea?: string | null;
 }
 
 export interface ServicesResponse {
@@ -143,6 +146,31 @@ export async function getServices(): Promise<Service[]> {
   return (result.data || []).filter(
     (service) => service.status === "approved" && service.available,
   );
+}
+
+/**
+ * Fetches a single service from the Express API (GET /api/services/:id).
+ * Returns null for missing, unapproved, or unavailable services — the
+ * backend enforces the approved + available publication contract.
+ */
+export async function getServiceById(id: string): Promise<Service | null> {
+  if (!API_URL) {
+    throw new Error("FIXMATE_API_URL is not configured");
+  }
+
+  const baseUrl = API_URL.replace(/\/+$/, "");
+  const response = await fetch(
+    `${baseUrl}/api/services/${encodeURIComponent(id)}`,
+    { cache: "no-store" },
+  );
+
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error("Failed to fetch service details");
+  }
+
+  const result = (await response.json()) as { data?: Service | null };
+  return result.data ?? null;
 }
 
 export async function getFeaturedServices(): Promise<Service[]> {

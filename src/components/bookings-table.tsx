@@ -11,91 +11,64 @@ import {
 import {
   bookingStatusBadge,
   bookingStatusLabels,
-  formatSchedule,
+  formatFinalAmount,
+  formatPreferredDate,
+  isPaymentStatus,
+  paymentStatusBadge,
+  paymentStatusLabels,
   shortBookingId,
   type BookingRecord,
-  type BookingScope,
 } from "@/lib/bookings";
 
-const headersByScope: Record<BookingScope, string[]> = {
-  customer: ["Booking", "Service", "Technician", "Schedule", "Status", "Actions"],
-  technician: ["Request", "Service", "Customer", "Scheduled time", "Status", "Actions"],
-  admin: [
-    "Booking",
-    "Customer",
-    "Service",
-    "Technician",
-    "Schedule",
-    "Status",
-    "Actions",
-  ],
-};
+const headers = [
+  "Booking",
+  "Customer",
+  "Service",
+  "Technician",
+  "Preferred date",
+  "Status",
+  "Final amount",
+  "Actions",
+];
 
 function StatusCell({ status }: { status: BookingRecord["status"] }) {
   return (
-    <Badge className={`capitalize ${bookingStatusBadge(status)}`}>
+    <Badge variant="outline" className={`rounded-full capitalize ${bookingStatusBadge(status)}`}>
       {bookingStatusLabels[status]}
     </Badge>
   );
 }
 
-function CustomerRow({ booking }: { booking: BookingRecord }) {
+function PaymentCell({ booking }: { booking: BookingRecord }) {
+  const payment = isPaymentStatus(booking.paymentStatus) ? booking.paymentStatus : "unpaid";
   return (
-    <TableRow>
-      <TableCell className="font-mono text-xs">
-        {shortBookingId(booking.id)}
-      </TableCell>
-      <TableCell className="font-medium">{booking.serviceTitle}</TableCell>
-      <TableCell>{booking.technicianName}</TableCell>
-      <TableCell>{formatSchedule(booking.scheduledFor)}</TableCell>
-      <TableCell>
-        <StatusCell status={booking.status} />
-      </TableCell>
-      <TableCell>
-        <BookingActions booking={booking} scope="customer" />
-      </TableCell>
-    </TableRow>
-  );
-}
-
-function TechnicianRow({ booking }: { booking: BookingRecord }) {
-  return (
-    <TableRow>
-      <TableCell className="font-mono text-xs">
-        {shortBookingId(booking.id)}
-      </TableCell>
-      <TableCell className="font-medium">{booking.serviceTitle}</TableCell>
-      <TableCell>
-        <div>{booking.customerName || "Customer"}</div>
-        <div className="text-xs text-muted-foreground">{booking.customerEmail}</div>
-      </TableCell>
-      <TableCell>{formatSchedule(booking.scheduledFor)}</TableCell>
-      <TableCell>
-        <StatusCell status={booking.status} />
-      </TableCell>
-      <TableCell>
-        <BookingActions booking={booking} scope="technician" />
-      </TableCell>
-    </TableRow>
+    <Badge variant="outline" className={`rounded-full ${paymentStatusBadge(payment)}`}>
+      {paymentStatusLabels[payment]}
+    </Badge>
   );
 }
 
 function AdminRow({ booking }: { booking: BookingRecord }) {
   return (
     <TableRow>
-      <TableCell className="font-mono text-xs">
-        {shortBookingId(booking.id)}
-      </TableCell>
+      <TableCell className="font-mono text-xs">{shortBookingId(booking.id)}</TableCell>
       <TableCell>
         <div>{booking.customerName || "Customer"}</div>
         <div className="text-xs text-muted-foreground">{booking.customerEmail}</div>
       </TableCell>
       <TableCell className="font-medium">{booking.serviceTitle}</TableCell>
-      <TableCell>{booking.technicianName}</TableCell>
-      <TableCell>{formatSchedule(booking.scheduledFor)}</TableCell>
       <TableCell>
-        <StatusCell status={booking.status} />
+        <div>{booking.technicianName || "—"}</div>
+        <div className="text-xs text-muted-foreground">{booking.technicianEmail}</div>
       </TableCell>
+      <TableCell>{formatPreferredDate(booking.preferredDate)}</TableCell>
+      <TableCell>
+        <div className="flex flex-col items-start gap-1">
+          <StatusCell status={booking.status} />
+          <PaymentCell booking={booking} />
+        </div>
+      </TableCell>
+      <TableCell className="whitespace-nowrap">{formatFinalAmount(booking.finalAmount)}</TableCell>
       <TableCell>
         <BookingActions booking={booking} scope="admin" />
       </TableCell>
@@ -103,14 +76,14 @@ function AdminRow({ booking }: { booking: BookingRecord }) {
   );
 }
 
-export function BookingsTable({
-  bookings,
-  scope,
-}: {
-  bookings: BookingRecord[];
-  scope: BookingScope;
-}) {
-  const headers = headersByScope[scope];
+export function BookingsTable({ bookings }: { bookings: BookingRecord[] }) {
+  if (bookings.length === 0) {
+    return (
+      <div className="rounded-2xl border border-border bg-card/80 p-6 text-sm text-muted-foreground">
+        No booking records to show yet.
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-x-auto rounded-2xl border border-border bg-card/80">
@@ -123,15 +96,9 @@ export function BookingsTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {bookings.map((booking) =>
-            scope === "customer" ? (
-              <CustomerRow key={booking.id} booking={booking} />
-            ) : scope === "technician" ? (
-              <TechnicianRow key={booking.id} booking={booking} />
-            ) : (
-              <AdminRow key={booking.id} booking={booking} />
-            ),
-          )}
+          {bookings.map((booking) => (
+            <AdminRow key={booking.id} booking={booking} />
+          ))}
         </TableBody>
       </Table>
     </div>

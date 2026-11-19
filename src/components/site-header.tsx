@@ -256,11 +256,11 @@ export function SiteHeader() {
               </>
             )}
 
-            <Link href="/services" className="hidden lg:block">
+            {/* <Link href="/services" className="hidden lg:block">
               <Button className="rounded-full bg-[linear-gradient(135deg,#17243B_0%,#3478F6_100%)] text-white shadow-lg shadow-blue-500/20">
                 Book now
               </Button>
-            </Link>
+            </Link> */}
             <button
               type="button"
               aria-label={open ? "Close navigation menu" : "Open navigation menu"}

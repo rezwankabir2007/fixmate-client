@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, LockKeyhole, ShieldCheck } from "lucide-react";
@@ -23,8 +23,25 @@ import { authClient, type AuthSessionUser } from "@/lib/auth-client";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { dashboardPathForRole, isUserRole } from "@/lib/user-role";
 
-export default function SignInPage() {
+// Only same-origin paths may be used as a post-login destination so the
+// redirect parameter cannot leave the site (open-redirect protection).
+function safeInternalRedirect(value: string | string[] | undefined): string | null {
+  if (typeof value !== "string") return null;
+  if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) {
+    return null;
+  }
+  if (value.includes("\\")) return null;
+  return value;
+}
+
+type PageProps = {
+  searchParams: Promise<{ redirect?: string | string[] }>;
+};
+
+export default function SignInPage({ searchParams }: PageProps) {
   const router = useRouter();
+  const params = use(searchParams);
+  const redirectTarget = safeInternalRedirect(params.redirect);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -75,8 +92,9 @@ export default function SignInPage() {
       // Step 3: Show success notification
       toast.success("Welcome back! You signed in successfully.");
 
-      // Step 4: Redirect according to the user's role
-      router.replace(dashboardPathForRole(sessionUser.role));
+      // Step 4: Return to the original page when requested (e.g. the service
+      // details page the visitor opened from), otherwise route by role.
+      router.replace(redirectTarget ?? dashboardPathForRole(sessionUser.role));
       router.refresh();
 
     } catch (submitError) {

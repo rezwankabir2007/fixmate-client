@@ -1,29 +1,35 @@
-import { BackendFeatureNotice, EmptyTable } from "@/components/dashboard-states";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { BookingsTable } from "@/components/bookings-table";
+import { DashboardDataError } from "@/components/dashboard-states";
 import { requireDashboardUser } from "@/lib/dashboard-auth";
+import type { BookingRecord } from "@/lib/bookings";
+import { serverApi } from "@/lib/server-api";
 
 export default async function AdminBookingsPage() {
   const user = await requireDashboardUser("admin");
+
+  let bookings: BookingRecord[] = [];
+  let loadError = false;
+
+  try {
+    const response = await serverApi<{ data: BookingRecord[] }>("/api/bookings");
+    bookings = response.data ?? [];
+  } catch {
+    loadError = true;
+  }
 
   return (
     <DashboardShell
       user={user}
       activeHref="/dashboard/admin/bookings"
       title="Booking management"
-      description="Administrative booking review requires a real booking lifecycle."
+      description="Read-only overview of every repair request. Only the assigned technician or the owning customer can change a status."
     >
-      <BackendFeatureNotice
-        title="Booking management backend required"
-        description="There is no booking collection, status transition API, or assignment policy in the current project."
-      />
-      <div className="mt-5">
-        <EmptyTable
-          title="Booking records are not connected"
-          description="No bookings are being simulated or read from unrelated collections."
-          columns={6}
-          headers={["Booking", "Customer", "Service", "Technician", "Schedule", "Status"]}
-        />
-      </div>
+      {loadError ? (
+        <DashboardDataError feature="Booking records" />
+      ) : (
+        <BookingsTable bookings={bookings} />
+      )}
     </DashboardShell>
   );
 }
