@@ -1,8 +1,18 @@
-import { BackendFeatureNotice, EmptyTable } from "@/components/dashboard-states";
+
+import { Suspense } from "react";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { requireDashboardUser } from "@/lib/dashboard-auth";
+import { CustomerPaymentHistory } from "./payment-history";
 
-export default async function CustomerPaymentsPage() {
+function PaymentsLoading() {
+  return (
+    <div className="rounded-xl border bg-white p-10 text-center">
+      Loading payments...
+    </div>
+  );
+}
+
+async function CustomerPaymentsContent() {
   const user = await requireDashboardUser("customer");
 
   return (
@@ -10,20 +20,19 @@ export default async function CustomerPaymentsPage() {
       user={user}
       activeHref="/dashboard/customer/payments"
       title="Payments"
-      description="Payment history is private to your customer account."
+      description="View your completed transactions and payment history."
     >
-      <BackendFeatureNotice
-        title="Payment history is not connected"
-        description="No payment provider or transaction collection exists in the current project. Payment methods, receipts, and refunds are not simulated."
-      />
-      <div className="mt-5">
-        <EmptyTable
-          title="No payment data is connected"
-          description="A payment provider and customer-scoped transaction API are required to populate this table."
-          columns={5}
-          headers={["Transaction", "Booking", "Amount", "Date", "Status"]}
-        />
-      </div>
+      <Suspense fallback={<PaymentsLoading />}>
+        <CustomerPaymentHistory />
+      </Suspense>
     </DashboardShell>
+  );
+}
+
+export default function CustomerPaymentsPage() {
+  return (
+    <Suspense fallback={<PaymentsLoading />}>
+      <CustomerPaymentsContent />
+    </Suspense>
   );
 }

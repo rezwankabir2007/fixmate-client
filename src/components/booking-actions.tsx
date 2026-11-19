@@ -1,9 +1,14 @@
+
 "use client";
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,7 +18,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AlertTriangle, Check, CreditCard, Play, X } from "lucide-react";
+
+import {
+  AlertTriangle,
+  Check,
+  CreditCard,
+  Play,
+  X,
+} from "lucide-react";
 
 import {
   canTransition,
@@ -24,7 +36,11 @@ import {
   type BookingRecord,
   type BookingStatus,
 } from "@/lib/bookings";
-import { patchBookingStatus } from "@/lib/booking-api";
+
+import {
+  patchBookingStatus,
+  createCheckoutSession,
+} from "@/lib/booking-api";
 
 type Actor = "customer" | "technician" | "admin";
 
@@ -75,6 +91,7 @@ export function BookingActions({
   scope: Actor;
 }) {
   const router = useRouter();
+
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -82,36 +99,76 @@ export function BookingActions({
 
   const busy = pendingAction !== null;
 
-  async function applyTransition(next: BookingStatus, actionKey: string, finalAmount?: number) {
+  async function applyTransition(
+    next: BookingStatus,
+    actionKey: string,
+    finalAmount?: number,
+  ) {
     setPendingAction(actionKey);
     setError(null);
+
     try {
       await patchBookingStatus(booking._id ?? booking.id, {
         status: next,
         ...(finalAmount !== undefined ? { finalAmount } : {}),
       });
+
       setConfirmCancel(false);
       setFinalAmountDialog(false);
+
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not update the request.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not update the request.",
+      );
     } finally {
       setPendingAction(null);
     }
   }
 
-  function runTransition(next: BookingStatus, actionKey: string, finalAmount?: number) {
+  async function handlePayment() {
+    setPendingAction("pay");
+    setError(null);
+
+    try {
+      const checkoutUrl = await createCheckoutSession(
+        booking._id ?? booking.id,
+      );
+
+      window.location.assign(checkoutUrl);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Could not start the payment. Please try again.",
+      );
+
+      setPendingAction(null);
+    }
+  }
+
+  function runTransition(
+    next: BookingStatus,
+    actionKey: string,
+    finalAmount?: number,
+  ) {
     if (!canTransition(booking.status, next, scope)) {
-      setError(`This request can no longer move from ${getStatusLabel(booking.status)}.`);
+      setError(
+        `This request can no longer move from ${getStatusLabel(booking.status)}.`,
+      );
       return;
     }
+
     void applyTransition(next, actionKey, finalAmount);
   }
 
   if (scope === "admin") {
     return (
       <p className="text-xs text-slate-500">
-        View only. Only the assigned technician or the customer can change this request.
+        View only. Only the assigned technician or the customer can change
+        this request.
       </p>
     );
   }
@@ -137,6 +194,7 @@ export function BookingActions({
               disabled={busy}
               onClick={() => runTransition("accepted", "accept")}
             />
+
             <ActionButton
               label={getTransitionLabel(booking.status, "rejected")}
               icon={<X className="h-4 w-4" />}
@@ -185,16 +243,16 @@ export function BookingActions({
         booking.status === "completed" &&
         booking.paymentStatus === "unpaid" ? (
           <ActionButton
-            label={`Pay Now${booking.finalAmount ? ` (${formatMoney(booking.finalAmount)})` : ""}`}
+            label={`Pay Now${
+              booking.finalAmount
+                ? ` (${formatMoney(booking.finalAmount)})`
+                : ""
+            }`}
             icon={<CreditCard className="h-4 w-4" />}
             tone="pay"
             pending={pendingAction === "pay"}
             disabled={busy}
-            onClick={() => {
-              setError(
-                "Online payment is not connected yet. Your technician will confirm the final amount and payment options with you.",
-              );
-            }}
+            onClick={() => void handlePayment()}
           />
         ) : null}
 
@@ -217,7 +275,9 @@ export function BookingActions({
         booking={booking}
         busy={pendingAction === "complete"}
         onOpenChange={setFinalAmountDialog}
-        onConfirm={(amount) => runTransition("completed", "complete", amount)}
+        onConfirm={(amount) =>
+          runTransition("completed", "complete", amount)
+        }
       />
     </div>
   );
@@ -240,14 +300,21 @@ function CancelDialog({
         <DialogHeader>
           <DialogTitle>Cancel this repair request?</DialogTitle>
           <DialogDescription>
-            This withdraws your request. The technician will no longer see it as active, and you can
-            request the service again later.
+            This withdraws your request. The technician will no longer see it
+            as active, and you can request the service again later.
           </DialogDescription>
         </DialogHeader>
+
         <DialogFooter className="gap-2 sm:justify-end">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={busy}
+          >
             Keep Request
           </Button>
+
           <Button type="button" onClick={onConfirm} disabled={busy}>
             {busy ? "Cancelling..." : "Yes, Cancel Request"}
           </Button>
@@ -276,6 +343,7 @@ function FinalAmountDialog({
   const prefill = booking.basePrice ?? 0;
   const raw = value.trim() === "" ? String(prefill) : value;
   const parsed = Number(raw);
+
   const invalid = !Number.isFinite(parsed) || parsed <= 0;
   const showError = touched && invalid;
 
@@ -286,6 +354,7 @@ function FinalAmountDialog({
         if (next && value.trim() === "") {
           setValue(String(prefill));
         }
+
         onOpenChange(next);
       }}
     >
@@ -293,7 +362,8 @@ function FinalAmountDialog({
         <DialogHeader>
           <DialogTitle>Confirm final amount</DialogTitle>
           <DialogDescription>
-            Review the base price and set the final amount for this completed repair.
+            Review the base price and set the final amount for this completed
+            repair.
           </DialogDescription>
         </DialogHeader>
 
@@ -305,15 +375,20 @@ function FinalAmountDialog({
                 {formatMoney(booking.basePrice)}
               </span>
             </div>
+
             <p className="mt-2 text-xs text-slate-500">
               {booking.serviceTitle} &middot; {booking.customerName}
             </p>
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="final-amount" className="text-sm font-medium text-slate-700">
+            <label
+              htmlFor="final-amount"
+              className="text-sm font-medium text-slate-700"
+            >
               Final amount (USD)
             </label>
+
             <input
               id="final-amount"
               type="number"
@@ -326,8 +401,11 @@ function FinalAmountDialog({
               onBlur={() => setTouched(true)}
               autoFocus
             />
+
             {showError ? (
-              <p className="text-sm text-red-600">Enter an amount greater than 0.</p>
+              <p className="text-sm text-red-600">
+                Enter an amount greater than 0.
+              </p>
             ) : (
               <p className="text-xs text-slate-500">
                 The customer will see this amount as the final price.
@@ -337,9 +415,15 @@ function FinalAmountDialog({
         </div>
 
         <DialogFooter className="gap-2 sm:justify-end">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={busy}
+          >
             Back
           </Button>
+
           <Button
             type="button"
             disabled={busy}
