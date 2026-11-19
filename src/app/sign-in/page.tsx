@@ -1,7 +1,7 @@
 
 "use client";
 
-import { use, useState } from "react";
+import { Suspense, use, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, LockKeyhole, ShieldCheck } from "lucide-react";
@@ -23,23 +23,52 @@ import { authClient, type AuthSessionUser } from "@/lib/auth-client";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { dashboardPathForRole, isUserRole } from "@/lib/user-role";
 
-// Only same-origin paths may be used as a post-login destination so the
-// redirect parameter cannot leave the site (open-redirect protection).
-function safeInternalRedirect(value: string | string[] | undefined): string | null {
+// Only allow safe internal redirect paths.
+function safeInternalRedirect(
+  value: string | string[] | undefined
+): string | null {
   if (typeof value !== "string") return null;
-  if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) {
+
+  if (
+    !value.startsWith("/") ||
+    value.startsWith("//") ||
+    value.startsWith("/\\")
+  ) {
     return null;
   }
+
   if (value.includes("\\")) return null;
+
   return value;
 }
 
 type PageProps = {
-  searchParams: Promise<{ redirect?: string | string[] }>;
+  searchParams: Promise<{
+    redirect?: string | string[];
+  }>;
 };
 
+// Main page: Suspense handles dynamic searchParams.
 export default function SignInPage({ searchParams }: PageProps) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <p className="text-sm text-muted-foreground">
+            Loading sign in page...
+          </p>
+        </div>
+      }
+    >
+      <SignInForm searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+// Client-side sign-in form.
+function SignInForm({ searchParams }: PageProps) {
   const router = useRouter();
+
   const params = use(searchParams);
   const redirectTarget = safeInternalRedirect(params.redirect);
 
@@ -55,7 +84,7 @@ export default function SignInPage({ searchParams }: PageProps) {
     setBusy(true);
 
     try {
-      // Step 1: Sign in using Better Auth
+      // Step 1: Sign in using Better Auth.
       const result = await authClient.signIn.email({
         email: email.trim(),
         password,
@@ -71,7 +100,7 @@ export default function SignInPage({ searchParams }: PageProps) {
         return;
       }
 
-      // Step 2: Verify the user's session
+      // Step 2: Verify the user's session.
       const sessionResponse = await authClient.getSession();
 
       const sessionUser = sessionResponse.data?.user as
@@ -89,14 +118,15 @@ export default function SignInPage({ searchParams }: PageProps) {
         return;
       }
 
-      // Step 3: Show success notification
+      // Step 3: Show success notification.
       toast.success("Welcome back! You signed in successfully.");
 
-      // Step 4: Return to the original page when requested (e.g. the service
-      // details page the visitor opened from), otherwise route by role.
-      router.replace(redirectTarget ?? dashboardPathForRole(sessionUser.role));
-      router.refresh();
+      // Step 4: Redirect according to role or original destination.
+      router.replace(
+        redirectTarget ?? dashboardPathForRole(sessionUser.role)
+      );
 
+      router.refresh();
     } catch (submitError) {
       toast.error(
         getAuthErrorMessage(
@@ -155,7 +185,9 @@ export default function SignInPage({ searchParams }: PageProps) {
           {/* Right Side: Sign In Form */}
           <Card className="border-border bg-card/80 shadow-[0_22px_60px_rgba(23,36,59,0.08)]">
             <CardHeader className="space-y-2 px-6 pt-6">
-              <CardTitle className="text-2xl">Sign in</CardTitle>
+              <CardTitle className="text-2xl">
+                Sign in
+              </CardTitle>
 
               <CardDescription>
                 Use your FixMate email and password to continue.

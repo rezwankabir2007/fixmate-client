@@ -2,6 +2,9 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { TechnicianServiceForm } from "@/components/technician-service-form";
 import { requireDashboardUser } from "@/lib/dashboard-auth";
 
+export const instant = false;
+
+
 export default async function TechnicianAddServicePage() {
   const user = await requireDashboardUser("technician");
 

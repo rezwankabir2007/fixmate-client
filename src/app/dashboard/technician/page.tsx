@@ -12,6 +12,10 @@ import { getTechnicianServices } from "@/lib/dashboard-data";
 import { serverApi } from "@/lib/server-api";
 import { isActiveBooking, type BookingRecord } from "@/lib/bookings";
 
+
+export const instant = false;
+
+
 export default async function TechnicianDashboardPage() {
   const user = await requireDashboardUser("technician");
   let services = null;

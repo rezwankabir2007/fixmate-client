@@ -11,6 +11,8 @@ import {
 import { requireDashboardUser } from "@/lib/dashboard-auth";
 import { getTechnicianServices } from "@/lib/dashboard-data";
 
+export const instant = false;
+
 export default async function TechnicianServicesPage() {
   const user = await requireDashboardUser("technician");
   let services = null;

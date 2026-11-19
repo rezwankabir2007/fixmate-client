@@ -5,6 +5,8 @@ import { requireDashboardUser } from "@/lib/dashboard-auth";
 import type { BookingRecord } from "@/lib/bookings";
 import { serverApi } from "@/lib/server-api";
 
+export const instant = false;
+
 export default async function TechnicianRequestsPage() {
   const user = await requireDashboardUser("technician");
 
