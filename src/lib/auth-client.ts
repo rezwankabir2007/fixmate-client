@@ -2,11 +2,19 @@ import { createAuthClient } from "better-auth/react";
 import { jwtClient } from "better-auth/client/plugins";
 
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+  baseURL:
+    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:5000",
+
   plugins: [jwtClient()],
 });
 
-export const { signIn, signUp, signOut, getSession, useSession } = authClient;
+export const {
+  signIn,
+  signUp,
+  signOut,
+  getSession,
+  useSession,
+} = authClient;
 
 export type AuthSessionUser = {
   id: string;
@@ -16,10 +24,10 @@ export type AuthSessionUser = {
   role?: string;
 };
 
-// সেশন থেকে JWT টোকেন তৈরি/নেওয়ার হেল্পার ফাংশন
 export async function getJwtToken(): Promise<string | null> {
   try {
     const { data, error } = await authClient.token();
+
     const jwtToken = data?.token;
 
     if (error || !jwtToken) {
