@@ -1,4 +1,8 @@
+
+export const instant = false;
+
 import { Suspense } from "react";
+import { connection } from "next/server";
 import Link from "next/link";
 
 import {
@@ -127,12 +131,16 @@ function FeaturedServicesSkeleton() {
 }
 
 async function LatestServicesList() {
+  // Wait until the incoming request before fetching dynamic services.
+  await connection();
+
   let latestServices: Service[] = [];
 
   try {
     latestServices = await getFeaturedServices();
   } catch (error) {
     console.error("Failed to fetch featured services:", error);
+
     return (
       <div className="rounded-2xl border border-border bg-card/80 p-6 text-center text-sm text-muted-foreground">
         Featured services could not be loaded right now.
@@ -173,7 +181,9 @@ async function LatestServicesList() {
                 </span>
               </div>
 
-              <CardTitle className="text-xl">{service.title}</CardTitle>
+              <CardTitle className="text-xl">
+                {service.title}
+              </CardTitle>
 
               <CardDescription className="mt-2 text-sm leading-6">
                 {service.shortDescription}
@@ -305,7 +315,9 @@ export default function Home() {
                       >
                         <div>
                           <p className="font-medium">{item.title}</p>
-                          <p className="text-sm text-slate-300">{item.time}</p>
+                          <p className="text-sm text-slate-300">
+                            {item.time}
+                          </p>
                         </div>
 
                         <span
