@@ -1,7 +1,8 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import * as React from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,24 +34,30 @@ export function ProfileForm({
 }: ProfileFormProps) {
   const router = useRouter();
 
-  const [value, setValue] = useState(name);
-  const [currentImage, setCurrentImage] = useState(image ?? null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [currentName, setCurrentName] = React.useState(name);
+  const [currentImage, setCurrentImage] = React.useState<string | null>(
+    image ?? null,
+  );
+  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
 
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  const [pending, setPending] = React.useState(false);
+  const [error, setError] = React.useState("");
+  const [success, setSuccess] = React.useState("");
 
-  useEffect(() => {
-    if (!previewUrl) return;
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
+  const displayedImage = previewUrl ?? currentImage;
+
+  React.useEffect(() => {
     return () => {
-      URL.revokeObjectURL(previewUrl);
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
     };
   }, [previewUrl]);
 
-  function getInitials() {
+  const getInitials = (value: string) => {
     return (
       value
         .trim()
@@ -60,15 +67,13 @@ export function ProfileForm({
         .map((part) => part[0].toUpperCase())
         .join("") || "U"
     );
-  }
+  };
 
-  function handleImageChange(
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) {
-    const file = event.target.files?.[0];
-
+  const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     setError("");
     setSuccess("");
+
+    const file = event.target.files?.[0];
 
     if (!file) return;
 
@@ -85,22 +90,39 @@ export function ProfileForm({
     }
 
     setSelectedFile(file);
-    setPreviewUrl(URL.createObjectURL(file));
-  }
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    const newPreviewUrl = URL.createObjectURL(file);
+    setPreviewUrl(newPreviewUrl);
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    setPending(true);
     setError("");
     setSuccess("");
+
+    const trimmedName = currentName.trim();
+
+    if (!trimmedName) {
+      setError("Please enter your name.");
+      return;
+    }
+
+    if (trimmedName.length < 2) {
+      setError("Name must be at least 2 characters long.");
+      return;
+    }
+
+    setPending(true);
 
     try {
       let imageUrl = currentImage;
 
-      // Step 1: Upload selected image to Cloudinary.
+      // Upload selected image first.
       if (selectedFile) {
         const formData = new FormData();
+
+        // Backend expects the field name "image".
         formData.append("image", selectedFile);
 
         const uploadResponse = await fetch(
@@ -113,145 +135,173 @@ export function ProfileForm({
 
         const uploadResult = await uploadResponse.json();
 
-        if (!uploadResponse.ok) {
+        if (!uploadResponse.ok || !uploadResult.secure_url) {
           throw new Error(
-            uploadResult.error ?? "Image upload failed.",
+            uploadResult.error ||
+              uploadResult.message ||
+              "Image upload failed. Please try again.",
           );
-        }
-
-        if (
-          typeof uploadResult.secure_url !== "string" ||
-          !uploadResult.secure_url
-        ) {
-          throw new Error("Cloudinary did not return an image URL.");
         }
 
         imageUrl = uploadResult.secure_url;
       }
 
-      // Step 2: Save name and image URL to the user profile.
-      const response = await fetch("/api/dashboard/profile", {
+      // Update profile information.
+      const profileResponse = await fetch("/api/dashboard/profile", {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: value,
-          ...(selectedFile ? { image: imageUrl } : {}),
+          name: trimmedName,
+          image: imageUrl,
         }),
       });
 
-      const result = await response.json();
+      const profileResult = await profileResponse.json();
 
-      if (!response.ok) {
+      if (!profileResponse.ok || profileResult.success === false) {
         throw new Error(
-          result.error ?? "Your profile could not be updated.",
+          profileResult.error ||
+            profileResult.message ||
+            "Profile update failed. Please try again.",
         );
       }
 
+      setCurrentName(trimmedName);
       setCurrentImage(imageUrl);
       setSelectedFile(null);
       setPreviewUrl(null);
 
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+
       setSuccess("Your profile has been updated successfully.");
 
+      // Notify Navbar about the updated profile image.
+      window.dispatchEvent(
+        new CustomEvent("fixmate:profile-updated", {
+          detail: {
+            image: imageUrl,
+          },
+        }),
+      );
+
       router.refresh();
-    } catch (submitError) {
+    } catch (err) {
       setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "Your profile could not be updated.",
+        err instanceof Error
+          ? err.message
+          : "Something went wrong. Please try again.",
       );
     } finally {
       setPending(false);
     }
-  }
+  };
 
-  const displayedImage = previewUrl || currentImage;
+  const handleReset = () => {
+    setCurrentName(name);
+    setCurrentImage(image ?? null);
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setError("");
+    setSuccess("");
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   return (
     <form
-      onSubmit={submit}
-      className="space-y-5 rounded-[24px] border border-border bg-card/80 p-5 shadow-[0_18px_40px_rgba(23,36,59,0.05)] sm:p-6"
+      onSubmit={handleSubmit}
+      className="space-y-6 rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6"
     >
-      <div className="space-y-3">
-        <p className="text-sm font-medium">Profile photo</p>
+      <div>
+        <h2 className="text-lg font-semibold text-foreground">
+          Personal information
+        </h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Update your profile details and profile photo.
+        </p>
+      </div>
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <Avatar className="size-24 border-2 border-border">
-            {displayedImage ? (
-              <AvatarImage src={displayedImage} alt="Profile photo" />
-            ) : null}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <Avatar className="size-20 border border-border">
+          {displayedImage ? (
+            <AvatarImage src={displayedImage} alt={currentName} />
+          ) : null}
+          <AvatarFallback className="text-lg">
+            {getInitials(currentName)}
+          </AvatarFallback>
+        </Avatar>
 
-            <AvatarFallback className="bg-blue-500/10 text-xl font-semibold text-blue-700 dark:text-blue-200">
-              {getInitials()}
-            </AvatarFallback>
-          </Avatar>
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-foreground">
+            Profile photo
+          </p>
 
-          <div className="min-w-0 flex-1 space-y-2">
-            <label
-              htmlFor="profile-image"
-              className="block text-sm font-medium"
-            >
-              Choose a new photo
-            </label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            onChange={handleImageChange}
+            disabled={pending}
+            className="block w-full max-w-xs text-sm text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:opacity-90 disabled:opacity-50"
+          />
 
-            <Input
-              id="profile-image"
-              name="image"
-              type="file"
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              disabled={pending}
-              onChange={handleImageChange}
-              className="cursor-pointer file:mr-3 file:rounded-full file:border-0 file:bg-blue-500/10 file:px-3 file:py-1 file:text-xs file:font-medium file:text-blue-700 dark:file:text-blue-200"
-            />
-
-            <p className="text-xs text-muted-foreground">
-              JPG, PNG, WEBP or GIF. Maximum file size: 2MB.
-            </p>
-
-            {selectedFile ? (
-              <p className="text-xs text-emerald-600 dark:text-emerald-300">
-                Selected: {selectedFile.name}
-              </p>
-            ) : null}
-          </div>
+          <p className="text-xs text-muted-foreground">
+            JPG, PNG, WEBP or GIF. Maximum size 2MB.
+          </p>
         </div>
       </div>
 
-      <div className="h-px bg-border" />
-
-      <label className="block space-y-2 text-sm font-medium">
-        Full name
+      <div className="space-y-2">
+        <label
+          htmlFor="profile-name"
+          className="text-sm font-medium text-foreground"
+        >
+          Full name
+        </label>
 
         <Input
+          id="profile-name"
           name="name"
-          minLength={2}
-          maxLength={80}
-          required
-          value={value}
+          value={currentName}
+          onChange={(event) => setCurrentName(event.target.value)}
+          placeholder="Enter your full name"
           disabled={pending}
-          onChange={(event) => setValue(event.target.value)}
+          required
         />
-      </label>
+      </div>
 
-      <label className="block space-y-2 text-sm font-medium">
-        Email
-
-        <Input value={email} readOnly aria-describedby="email-note" />
-
-        <span
-          id="email-note"
-          className="block text-xs font-normal text-muted-foreground"
+      <div className="space-y-2">
+        <label
+          htmlFor="profile-email"
+          className="text-sm font-medium text-foreground"
         >
-          Email changes are not enabled in this workspace.
-        </span>
-      </label>
+          Email address
+        </label>
+
+        <Input
+          id="profile-email"
+          name="email"
+          type="email"
+          value={email}
+          disabled
+          readOnly
+        />
+
+        <p className="text-xs text-muted-foreground">
+          Your email address cannot be changed here.
+        </p>
+      </div>
 
       {error ? (
         <p
           role="alert"
-          className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-sm text-red-600 dark:text-red-300"
+          className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-300"
         >
           {error}
         </p>
@@ -260,21 +310,26 @@ export function ProfileForm({
       {success ? (
         <p
           role="status"
-          className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-sm text-emerald-700 dark:text-emerald-300"
+          className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700 dark:text-emerald-300"
         >
           {success}
         </p>
       ) : null}
 
-      <Button
-        type="submit"
-        disabled={pending}
-        className="rounded-full bg-[linear-gradient(135deg,#17243B_0%,#3478F6_100%)] text-white"
-      >
-        {pending
-          ? "Uploading and saving..."
-          : "Save profile"}
-      </Button>
+      <div className="flex flex-wrap gap-3">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Saving changes..." : "Save changes"}
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
+          disabled={pending}
+          onClick={handleReset}
+        >
+          Reset
+        </Button>
+      </div>
     </form>
   );
 }
