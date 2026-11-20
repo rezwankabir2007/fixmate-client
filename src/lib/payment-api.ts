@@ -4,6 +4,7 @@ export type CustomerPayment = {
   transactionId: string;
   bookingId: string;
   bookingTitle: string;
+  technicianName: string;
   amount: number;
   currency: string;
   date: string | null;
@@ -29,4 +30,3 @@ export async function getCustomerPaymentHistory(): Promise<CustomerPayment[]> {
 
   return payload?.data?.payments ?? [];
 }
-

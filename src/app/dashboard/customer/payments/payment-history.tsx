@@ -111,9 +111,7 @@ export function CustomerPaymentHistory() {
           <p className="font-medium text-red-700">
             Unable to load payments
           </p>
-          <p className="mt-1 text-sm text-red-600">
-            {error}
-          </p>
+          <p className="mt-1 text-sm text-red-600">{error}</p>
           <button
             onClick={() => window.location.reload()}
             className="mt-3 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
@@ -137,20 +135,23 @@ export function CustomerPaymentHistory() {
       {!loading && !error && payments.length > 0 && (
         <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[750px] text-left text-sm">
+            <table className="w-full min-w-[950px] text-left text-sm">
               <thead className="border-b bg-gray-50 text-gray-600">
                 <tr>
                   <th className="px-5 py-4 font-semibold">
                     Transaction
                   </th>
                   <th className="px-5 py-4 font-semibold">
-                    Booking
+                    Service
+                  </th>
+                  <th className="px-5 py-4 font-semibold">
+                    Technician
                   </th>
                   <th className="px-5 py-4 font-semibold">
                     Amount
                   </th>
                   <th className="px-5 py-4 font-semibold">
-                    Date
+                    Payment Date
                   </th>
                   <th className="px-5 py-4 font-semibold">
                     Status
@@ -179,6 +180,10 @@ export function CustomerPaymentHistory() {
                       <p className="mt-1 text-xs text-gray-500">
                         ID: {payment.bookingId}
                       </p>
+                    </td>
+
+                    <td className="px-5 py-4 font-medium text-gray-800">
+                      {payment.technicianName || "—"}
                     </td>
 
                     <td className="px-5 py-4 font-semibold text-gray-900">
