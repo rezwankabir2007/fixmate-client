@@ -1,10 +1,11 @@
+
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
   reactCompiler: true,
+
   turbopack: {
     rules: {
       "*.css": {
@@ -12,6 +13,18 @@ const nextConfig: NextConfig = {
         as: "*.css",
       },
     },
+  },
+
+  async rewrites() {
+    return {
+      beforeFiles: [
+        {
+          source: "/api/auth/:path*",
+          destination:
+            "https://fixmate-server-khaki.vercel.app/api/auth/:path*",
+        },
+      ],
+    };
   },
 };
 
