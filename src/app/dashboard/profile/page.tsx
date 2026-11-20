@@ -1,3 +1,6 @@
+
+export const instant = false;
+
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -24,7 +27,9 @@ export default async function DashboardProfilePage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">User ID</p>
-              <p className="mt-1 break-all font-mono text-xs text-foreground">{user.id}</p>
+              <p className="mt-1 break-all font-mono text-xs text-foreground">
+                {user.id}
+              </p>
             </div>
             <p className="text-sm text-muted-foreground">
               Role changes are not available in profile settings.
